@@ -19,12 +19,5 @@
       "src": "/(.*)",
       "dest": "server.js"
     }
-  ],
-  "env": {
-    "DATABASE_URL": "@database_url",
-    "MERCADO_PAGO_PUBLIC_KEY": "@mercado_pago_public_key",
-    "MERCADO_PAGO_ACCESS_TOKEN": "@mercado_pago_access_token",
-    "BASE_URL": "@base_url",
-    "PORT": "3000"
-  }
+  ]
 }
