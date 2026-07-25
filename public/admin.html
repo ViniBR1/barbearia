@@ -366,6 +366,25 @@
             font-size: 0.75rem;
         }
 
+        /* ===== TELA DE LOGIN ===== */
+        #telaLogin {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: var(--dark);
+        }
+        #telaLogin .card {
+            max-width: 400px;
+            width: 100%;
+            padding: 2rem;
+        }
+        #telaLogin .card h2 {
+            color: var(--primary);
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+
         @media (max-width: 768px) {
             .navbar {
                 flex-direction: column;
@@ -387,282 +406,376 @@
 </head>
 <body>
 
-    <div class="container">
-        <!-- NAVBAR -->
-        <header class="navbar">
-            <div class="logo"><i class="fas fa-scissors"></i> Empório Barbe</div>
-            <div class="nav-links">
-                <a class="active" onclick="mudarTab('dashboard')"><i class="fas fa-home"></i> Dashboard</a>
-                <a onclick="mudarTab('catalogo')"><i class="fas fa-cut"></i> Catálogo</a>
-                <a onclick="mudarTab('planos')"><i class="fas fa-crown"></i> Planos</a>
-                <a onclick="mudarTab('agendamentos')"><i class="fas fa-calendar-alt"></i> Agendamentos</a>
-                <a onclick="mudarTab('estoque')"><i class="fas fa-boxes"></i> Estoque</a>
-                <a onclick="mudarTab('barbearias')"><i class="fas fa-store"></i> Multi</a>
-                <span style="color: var(--primary); font-size: 0.85rem;">
-                    <i class="fas fa-user-cog"></i> <span id="adminNome">Admin</span>
-                </span>
-                <button class="btn btn-sm btn-outline" onclick="logoutAdmin()"><i class="fas fa-sign-out-alt"></i></button>
+    <!-- ===== TELA DE LOGIN ===== -->
+    <div id="telaLogin">
+        <div class="card">
+            <h2><i class="fas fa-scissors"></i> Painel Admin</h2>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" id="adminLoginEmail" placeholder="admin@barbearia.com">
             </div>
-        </header>
+            <div class="form-group">
+                <label>Senha</label>
+                <input type="password" id="adminLoginSenha" placeholder="******" onkeypress="if(event.key==='Enter') loginAdmin()">
+            </div>
+            <button class="btn btn-block" onclick="loginAdmin()">
+                <i class="fas fa-sign-in-alt"></i> Entrar
+            </button>
+            <p id="adminLoginErro" style="color: var(--danger); text-align: center; margin-top: 0.5rem; display: none;"></p>
+        </div>
+    </div>
 
-        <!-- ===== DASHBOARD ===== -->
-        <div id="tab-dashboard" class="tab-content active">
-            <div class="stats-grid" id="statsDashboard">
-                <div class="stat-item"><div class="numero" id="totalAgendamentos">0</div><div class="label">Total Agendamentos</div></div>
-                <div class="stat-item"><div class="numero" id="agendamentosHoje">0</div><div class="label">Hoje</div></div>
-                <div class="stat-item"><div class="numero" id="filaTotal">0</div><div class="label">Na Fila</div></div>
-                <div class="stat-item"><div class="numero" id="totalClientes">0</div><div class="label">Clientes</div></div>
-                <div class="stat-item"><div class="numero" id="faturamentoMes">R$ 0</div><div class="label">Mês</div></div>
-                <div class="stat-item"><div class="numero" id="servicosAtivos">0</div><div class="label">Serviços</div></div>
+    <!-- ===== CONTEÚDO DO ADMIN ===== -->
+    <div id="conteudoAdmin" style="display: none;">
+        <div class="container">
+            <!-- NAVBAR -->
+            <header class="navbar">
+                <div class="logo" onclick="window.location.href='/'"><i class="fas fa-scissors"></i> Empório Barbe</div>
+                <div class="nav-links">
+                    <a class="active" onclick="mudarTab('dashboard')"><i class="fas fa-home"></i> Dashboard</a>
+                    <a onclick="mudarTab('catalogo')"><i class="fas fa-cut"></i> Catálogo</a>
+                    <a onclick="mudarTab('planos')"><i class="fas fa-crown"></i> Planos</a>
+                    <a onclick="mudarTab('agendamentos')"><i class="fas fa-calendar-alt"></i> Agendamentos</a>
+                    <a onclick="mudarTab('estoque')"><i class="fas fa-boxes"></i> Estoque</a>
+                    <a onclick="mudarTab('barbearias')"><i class="fas fa-store"></i> Multi</a>
+                    <span style="color: var(--primary); font-size: 0.85rem;">
+                        <i class="fas fa-user-cog"></i> <span id="adminNome">Admin</span>
+                    </span>
+                    <button class="btn btn-sm btn-outline" onclick="logoutAdmin()"><i class="fas fa-sign-out-alt"></i> Sair</button>
+                </div>
+            </header>
+
+            <!-- ===== DASHBOARD ===== -->
+            <div id="tab-dashboard" class="tab-content active">
+                <div class="stats-grid" id="statsDashboard">
+                    <div class="stat-item"><div class="numero" id="totalAgendamentos">0</div><div class="label">Total Agendamentos</div></div>
+                    <div class="stat-item"><div class="numero" id="agendamentosHoje">0</div><div class="label">Hoje</div></div>
+                    <div class="stat-item"><div class="numero" id="filaTotal">0</div><div class="label">Na Fila</div></div>
+                    <div class="stat-item"><div class="numero" id="totalClientes">0</div><div class="label">Clientes</div></div>
+                    <div class="stat-item"><div class="numero" id="faturamentoMes">R$ 0</div><div class="label">Mês</div></div>
+                    <div class="stat-item"><div class="numero" id="servicosAtivos">0</div><div class="label">Serviços</div></div>
+                </div>
+
+                <div class="grid-2">
+                    <div class="card">
+                        <h3><i class="fas fa-clock"></i> Próximos Agendamentos</h3>
+                        <div id="proximosAgendamentos" style="max-height:300px; overflow-y:auto;"></div>
+                    </div>
+                    <div class="card">
+                        <h3><i class="fas fa-tag"></i> Serviços Mais Pedidos</h3>
+                        <div id="servicosMaisPedidos" style="max-height:300px; overflow-y:auto;"></div>
+                    </div>
+                </div>
             </div>
 
-            <div class="grid-2">
+            <!-- ===== CATÁLOGO ===== -->
+            <div id="tab-catalogo" class="tab-content">
                 <div class="card">
-                    <h3><i class="fas fa-clock"></i> Próximos Agendamentos</h3>
-                    <div id="proximosAgendamentos" style="max-height:300px; overflow-y:auto;"></div>
+                    <div class="card-header">
+                        <h3><i class="fas fa-cut"></i> Gerenciar Serviços</h3>
+                        <button class="btn btn-sm" onclick="abrirModalServico()"><i class="fas fa-plus"></i> Novo Serviço</button>
+                    </div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr><th>Nome</th><th>Descrição</th><th>Preço</th><th>Duração</th><th>Status</th><th>Ações</th></tr>
+                            </thead>
+                            <tbody id="tabelaServicos"></tbody>
+                        </table>
+                    </div>
                 </div>
+            </div>
+
+            <!-- ===== PLANOS ===== -->
+            <div id="tab-planos" class="tab-content">
                 <div class="card">
-                    <h3><i class="fas fa-tag"></i> Serviços Mais Pedidos</h3>
-                    <div id="servicosMaisPedidos" style="max-height:300px; overflow-y:auto;"></div>
+                    <div class="card-header">
+                        <h3><i class="fas fa-crown"></i> Gerenciar Planos</h3>
+                        <button class="btn btn-sm" onclick="abrirModalPlano()"><i class="fas fa-plus"></i> Novo Plano</button>
+                    </div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr><th>Nome</th><th>Descrição</th><th>Preço</th><th>Cortes/Mês</th><th>Prioridade</th><th>Status</th><th>Ações</th></tr>
+                            </thead>
+                            <tbody id="tabelaPlanos"></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <!-- ===== CATÁLOGO ===== -->
-        <div id="tab-catalogo" class="tab-content">
-            <div class="card">
-                <div class="card-header">
-                    <h3><i class="fas fa-cut"></i> Gerenciar Serviços</h3>
-                    <button class="btn btn-sm" onclick="abrirModalServico()"><i class="fas fa-plus"></i> Novo Serviço</button>
-                </div>
-                <div class="table-wrap">
-                    <table>
-                        <thead>
-                            <tr><th>Nome</th><th>Descrição</th><th>Preço</th><th>Duração</th><th>Status</th><th>Ações</th></tr>
-                        </thead>
-                        <tbody id="tabelaServicos"></tbody>
-                    </table>
+            <!-- ===== AGENDAMENTOS ===== -->
+            <div id="tab-agendamentos" class="tab-content">
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-calendar-alt"></i> Todos os Agendamentos</h3>
+                        <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+                            <select id="filtroStatus" onchange="carregarAgendamentos()" style="padding:0.3rem 0.8rem; border-radius:8px; background:var(--dark); color:var(--text); border:1px solid var(--border);">
+                                <option value="todos">Todos</option>
+                                <option value="aguardando">Aguardando</option>
+                                <option value="confirmado">Confirmado</option>
+                                <option value="done">Finalizado</option>
+                                <option value="canceled">Cancelado</option>
+                            </select>
+                            <input type="date" id="filtroData" onchange="carregarAgendamentos()" style="padding:0.3rem 0.8rem; border-radius:8px; background:var(--dark); color:var(--text); border:1px solid var(--border);">
+                        </div>
+                    </div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr><th>Cliente</th><th>Serviço</th><th>Data/Hora</th><th>Valor</th><th>Status</th><th>Pagamento</th><th>Ações</th></tr>
+                            </thead>
+                            <tbody id="tabelaAgendamentos"></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <!-- ===== PLANOS ===== -->
-        <div id="tab-planos" class="tab-content">
-            <div class="card">
-                <div class="card-header">
-                    <h3><i class="fas fa-crown"></i> Gerenciar Planos</h3>
-                    <button class="btn btn-sm" onclick="abrirModalPlano()"><i class="fas fa-plus"></i> Novo Plano</button>
-                </div>
-                <div class="table-wrap">
-                    <table>
-                        <thead>
-                            <tr><th>Nome</th><th>Descrição</th><th>Preço</th><th>Cortes/Mês</th><th>Prioridade</th><th>Status</th><th>Ações</th></tr>
-                        </thead>
-                        <tbody id="tabelaPlanos"></tbody>
-                    </table>
+            <!-- ===== ESTOQUE ===== -->
+            <div id="tab-estoque" class="tab-content">
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-boxes"></i> Gerenciar Estoque</h3>
+                        <button class="btn btn-sm" onclick="abrirModalEstoque()"><i class="fas fa-plus"></i> Adicionar Item</button>
+                    </div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr><th>Item</th><th>Quantidade</th><th>Ações</th></tr>
+                            </thead>
+                            <tbody id="tabelaEstoque"></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <!-- ===== AGENDAMENTOS ===== -->
-        <div id="tab-agendamentos" class="tab-content">
-            <div class="card">
-                <div class="card-header">
-                    <h3><i class="fas fa-calendar-alt"></i> Todos os Agendamentos</h3>
-                    <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
-                        <select id="filtroStatus" onchange="carregarAgendamentos()" style="padding:0.3rem 0.8rem; border-radius:8px; background:var(--dark); color:var(--text); border:1px solid var(--border);">
-                            <option value="todos">Todos</option>
-                            <option value="aguardando">Aguardando</option>
-                            <option value="confirmado">Confirmado</option>
-                            <option value="done">Finalizado</option>
-                            <option value="canceled">Cancelado</option>
+            <!-- ===== MULTI BARBEARIAS ===== -->
+            <div id="tab-barbearias" class="tab-content">
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-store"></i> Multi Barbearias</h3>
+                        <button class="btn btn-sm" onclick="abrirModalBarbearia()"><i class="fas fa-plus"></i> Nova Barbearia</button>
+                    </div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr><th>ID</th><th>Nome</th><th>Slug</th><th>Criado em</th><th>Ações</th></tr>
+                            </thead>
+                            <tbody id="tabelaBarbearias"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== MODAIS ===== -->
+
+            <!-- Modal Serviço -->
+            <div class="modal" id="modalServico">
+                <div class="modal-content">
+                    <h2 id="modalServicoTitulo"><i class="fas fa-cut"></i> Novo Serviço</h2>
+                    <input type="hidden" id="servicoId">
+                    <div class="form-group">
+                        <label>Nome do Serviço</label>
+                        <input type="text" id="servicoNome" placeholder="Ex: Corte Degradê">
+                    </div>
+                    <div class="form-group">
+                        <label>Descrição</label>
+                        <input type="text" id="servicoDescricao" placeholder="Breve descrição">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Preço (R$)</label>
+                            <input type="number" id="servicoPreco" step="0.01" placeholder="45.00">
+                        </div>
+                        <div class="form-group">
+                            <label>Duração (minutos)</label>
+                            <input type="number" id="servicoDuracao" placeholder="30">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select id="servicoStatus">
+                            <option value="true">Ativo</option>
+                            <option value="false">Inativo</option>
                         </select>
-                        <input type="date" id="filtroData" onchange="carregarAgendamentos()" style="padding:0.3rem 0.8rem; border-radius:8px; background:var(--dark); color:var(--text); border:1px solid var(--border);">
                     </div>
-                </div>
-                <div class="table-wrap">
-                    <table>
-                        <thead>
-                            <tr><th>Cliente</th><th>Serviço</th><th>Data/Hora</th><th>Valor</th><th>Status</th><th>Pagamento</th><th>Ações</th></tr>
-                        </thead>
-                        <tbody id="tabelaAgendamentos"></tbody>
-                    </table>
+                    <button class="btn btn-block" onclick="salvarServico()"><i class="fas fa-save"></i> Salvar</button>
+                    <button class="btn btn-block btn-outline" onclick="fecharModal('modalServico')">Cancelar</button>
                 </div>
             </div>
-        </div>
 
-        <!-- ===== ESTOQUE ===== -->
-        <div id="tab-estoque" class="tab-content">
-            <div class="card">
-                <div class="card-header">
-                    <h3><i class="fas fa-boxes"></i> Gerenciar Estoque</h3>
-                    <button class="btn btn-sm" onclick="abrirModalEstoque()"><i class="fas fa-plus"></i> Adicionar Item</button>
-                </div>
-                <div class="table-wrap">
-                    <table>
-                        <thead>
-                            <tr><th>Item</th><th>Quantidade</th><th>Ações</th></tr>
-                        </thead>
-                        <tbody id="tabelaEstoque"></tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <!-- ===== MULTI BARBEARIAS ===== -->
-        <div id="tab-barbearias" class="tab-content">
-            <div class="card">
-                <div class="card-header">
-                    <h3><i class="fas fa-store"></i> Multi Barbearias</h3>
-                    <button class="btn btn-sm" onclick="abrirModalBarbearia()"><i class="fas fa-plus"></i> Nova Barbearia</button>
-                </div>
-                <div class="table-wrap">
-                    <table>
-                        <thead>
-                            <tr><th>ID</th><th>Nome</th><th>Slug</th><th>Criado em</th><th>Ações</th></tr>
-                        </thead>
-                        <tbody id="tabelaBarbearias"></tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <!-- ===== MODAIS ===== -->
-
-        <!-- Modal Serviço -->
-        <div class="modal" id="modalServico">
-            <div class="modal-content">
-                <h2 id="modalServicoTitulo"><i class="fas fa-cut"></i> Novo Serviço</h2>
-                <input type="hidden" id="servicoId">
-                <div class="form-group">
-                    <label>Nome do Serviço</label>
-                    <input type="text" id="servicoNome" placeholder="Ex: Corte Degradê">
-                </div>
-                <div class="form-group">
-                    <label>Descrição</label>
-                    <input type="text" id="servicoDescricao" placeholder="Breve descrição">
-                </div>
-                <div class="form-row">
+            <!-- Modal Plano -->
+            <div class="modal" id="modalPlano">
+                <div class="modal-content">
+                    <h2 id="modalPlanoTitulo"><i class="fas fa-crown"></i> Novo Plano</h2>
+                    <input type="hidden" id="planoId">
                     <div class="form-group">
-                        <label>Preço (R$)</label>
-                        <input type="number" id="servicoPreco" step="0.01" placeholder="45.00">
+                        <label>Nome do Plano</label>
+                        <input type="text" id="planoNome" placeholder="Ex: Mensal Premium">
                     </div>
                     <div class="form-group">
-                        <label>Duração (minutos)</label>
-                        <input type="number" id="servicoDuracao" placeholder="30">
+                        <label>Descrição</label>
+                        <input type="text" id="planoDescricao" placeholder="Benefícios do plano">
                     </div>
-                </div>
-                <div class="form-group">
-                    <label>Status</label>
-                    <select id="servicoStatus">
-                        <option value="true">Ativo</option>
-                        <option value="false">Inativo</option>
-                    </select>
-                </div>
-                <button class="btn btn-block" onclick="salvarServico()"><i class="fas fa-save"></i> Salvar</button>
-                <button class="btn btn-block btn-outline" onclick="fecharModal('modalServico')">Cancelar</button>
-            </div>
-        </div>
-
-        <!-- Modal Plano -->
-        <div class="modal" id="modalPlano">
-            <div class="modal-content">
-                <h2 id="modalPlanoTitulo"><i class="fas fa-crown"></i> Novo Plano</h2>
-                <input type="hidden" id="planoId">
-                <div class="form-group">
-                    <label>Nome do Plano</label>
-                    <input type="text" id="planoNome" placeholder="Ex: Mensal Premium">
-                </div>
-                <div class="form-group">
-                    <label>Descrição</label>
-                    <input type="text" id="planoDescricao" placeholder="Benefícios do plano">
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Preço (R$)</label>
-                        <input type="number" id="planoPreco" step="0.01" placeholder="89.90">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Preço (R$)</label>
+                            <input type="number" id="planoPreco" step="0.01" placeholder="89.90">
+                        </div>
+                        <div class="form-group">
+                            <label>Cortes por Mês</label>
+                            <input type="number" id="planoCortes" placeholder="4 (0 = ilimitado)">
+                        </div>
                     </div>
                     <div class="form-group">
-                        <label>Cortes por Mês</label>
-                        <input type="number" id="planoCortes" placeholder="4 (0 = ilimitado)">
+                        <label>Prioridade no Atendimento</label>
+                        <select id="planoPrioridade">
+                            <option value="true">Sim</option>
+                            <option value="false">Não</option>
+                        </select>
                     </div>
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select id="planoStatus">
+                            <option value="true">Ativo</option>
+                            <option value="false">Inativo</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-block" onclick="salvarPlano()"><i class="fas fa-save"></i> Salvar</button>
+                    <button class="btn btn-block btn-outline" onclick="fecharModal('modalPlano')">Cancelar</button>
                 </div>
-                <div class="form-group">
-                    <label>Prioridade no Atendimento</label>
-                    <select id="planoPrioridade">
-                        <option value="true">Sim</option>
-                        <option value="false">Não</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Status</label>
-                    <select id="planoStatus">
-                        <option value="true">Ativo</option>
-                        <option value="false">Inativo</option>
-                    </select>
-                </div>
-                <button class="btn btn-block" onclick="salvarPlano()"><i class="fas fa-save"></i> Salvar</button>
-                <button class="btn btn-block btn-outline" onclick="fecharModal('modalPlano')">Cancelar</button>
             </div>
-        </div>
 
-        <!-- Modal Estoque -->
-        <div class="modal" id="modalEstoque">
-            <div class="modal-content">
-                <h2><i class="fas fa-boxes"></i> Adicionar Item</h2>
-                <input type="hidden" id="estoqueId">
-                <div class="form-group">
-                    <label>Nome do Item</label>
-                    <input type="text" id="estoqueItem" placeholder="Ex: Máquina de Corte">
+            <!-- Modal Estoque -->
+            <div class="modal" id="modalEstoque">
+                <div class="modal-content">
+                    <h2><i class="fas fa-boxes"></i> Adicionar Item</h2>
+                    <input type="hidden" id="estoqueId">
+                    <div class="form-group">
+                        <label>Nome do Item</label>
+                        <input type="text" id="estoqueItem" placeholder="Ex: Máquina de Corte">
+                    </div>
+                    <div class="form-group">
+                        <label>Quantidade</label>
+                        <input type="number" id="estoqueQuantidade" placeholder="10">
+                    </div>
+                    <button class="btn btn-block" onclick="salvarEstoque()"><i class="fas fa-save"></i> Salvar</button>
+                    <button class="btn btn-block btn-outline" onclick="fecharModal('modalEstoque')">Cancelar</button>
                 </div>
-                <div class="form-group">
-                    <label>Quantidade</label>
-                    <input type="number" id="estoqueQuantidade" placeholder="10">
-                </div>
-                <button class="btn btn-block" onclick="salvarEstoque()"><i class="fas fa-save"></i> Salvar</button>
-                <button class="btn btn-block btn-outline" onclick="fecharModal('modalEstoque')">Cancelar</button>
             </div>
-        </div>
 
-        <!-- Modal Barbearia -->
-        <div class="modal" id="modalBarbearia">
-            <div class="modal-content">
-                <h2><i class="fas fa-store"></i> Nova Barbearia</h2>
-                <div class="form-group">
-                    <label>Nome da Barbearia</label>
-                    <input type="text" id="barbeariaNome" placeholder="Ex: Empório Barbe Norte">
+            <!-- Modal Barbearia -->
+            <div class="modal" id="modalBarbearia">
+                <div class="modal-content">
+                    <h2><i class="fas fa-store"></i> Nova Barbearia</h2>
+                    <div class="form-group">
+                        <label>Nome da Barbearia</label>
+                        <input type="text" id="barbeariaNome" placeholder="Ex: Empório Barbe Norte">
+                    </div>
+                    <div class="form-group">
+                        <label>Slug (URL)</label>
+                        <input type="text" id="barbeariaSlug" placeholder="Ex: norte">
+                    </div>
+                    <button class="btn btn-block" onclick="salvarBarbearia()"><i class="fas fa-save"></i> Criar</button>
+                    <button class="btn btn-block btn-outline" onclick="fecharModal('modalBarbearia')">Cancelar</button>
                 </div>
-                <div class="form-group">
-                    <label>Slug (URL)</label>
-                    <input type="text" id="barbeariaSlug" placeholder="Ex: norte">
-                </div>
-                <button class="btn btn-block" onclick="salvarBarbearia()"><i class="fas fa-save"></i> Criar</button>
-                <button class="btn btn-block btn-outline" onclick="fecharModal('modalBarbearia')">Cancelar</button>
             </div>
-        </div>
 
-        <!-- TOAST -->
-        <div class="toast" id="toast">
-            <i class="fas fa-check-circle" style="color: var(--success);"></i>
-            <span id="toastMensagem">Sucesso!</span>
+            <!-- TOAST -->
+            <div class="toast" id="toast">
+                <i class="fas fa-check-circle" style="color: var(--success);"></i>
+                <span id="toastMensagem">Sucesso!</span>
+            </div>
         </div>
     </div>
 
     <script>
         const API_URL = '';
         let barbeariaId = 1;
-        let adminLogado = JSON.parse(localStorage.getItem('adminEmporio')) || { nome: 'Admin' };
+        let adminLogado = JSON.parse(localStorage.getItem('adminDados')) || null;
 
-        // ========== INICIALIZAÇÃO ==========
-        document.addEventListener('DOMContentLoaded', function() {
-            document.getElementById('adminNome').textContent = adminLogado.nome || 'Admin';
-            carregarDashboard();
-            carregarServicos();
-            carregarPlanos();
-            carregarAgendamentos();
-            carregarEstoque();
-            carregarBarbearias();
-        });
+        // ========== LOGIN ADMIN ==========
+        async function loginAdmin() {
+            const email = document.getElementById('adminLoginEmail').value;
+            const senha = document.getElementById('adminLoginSenha').value;
+
+            if (!email || !senha) {
+                mostrarToast('Preencha email e senha!', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/admin/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, senha })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    localStorage.setItem('adminToken', data.token);
+                    localStorage.setItem('adminDados', JSON.stringify(data.admin));
+                    mostrarToast('Login realizado com sucesso!');
+                    document.getElementById('telaLogin').style.display = 'none';
+                    document.getElementById('conteudoAdmin').style.display = 'block';
+                    document.getElementById('adminNome').textContent = data.admin.nome || 'Admin';
+                    carregarDashboard();
+                    carregarServicos();
+                    carregarPlanos();
+                    carregarAgendamentos();
+                    carregarEstoque();
+                    carregarBarbearias();
+                } else {
+                    document.getElementById('adminLoginErro').textContent = data.error || 'Erro no login';
+                    document.getElementById('adminLoginErro').style.display = 'block';
+                }
+            } catch (error) {
+                mostrarToast('Erro no login: ' + error.message, 'error');
+            }
+        }
+
+        // ========== VERIFICAR ADMIN LOGADO ==========
+        function verificarAdminLogado() {
+            const token = localStorage.getItem('adminToken');
+            if (token) {
+                fetch('/api/admin/verificar', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('telaLogin').style.display = 'none';
+                        document.getElementById('conteudoAdmin').style.display = 'block';
+                        document.getElementById('adminNome').textContent = data.admin.nome || 'Admin';
+                        carregarDashboard();
+                        carregarServicos();
+                        carregarPlanos();
+                        carregarAgendamentos();
+                        carregarEstoque();
+                        carregarBarbearias();
+                    } else {
+                        localStorage.removeItem('adminToken');
+                        localStorage.removeItem('adminDados');
+                    }
+                })
+                .catch(() => {
+                    localStorage.removeItem('adminToken');
+                    localStorage.removeItem('adminDados');
+                });
+            }
+        }
+
+        // ========== LOGOUT ==========
+        function logoutAdmin() {
+            if (confirm('Deseja realmente sair?')) {
+                localStorage.removeItem('adminToken');
+                localStorage.removeItem('adminDados');
+                document.getElementById('telaLogin').style.display = 'flex';
+                document.getElementById('conteudoAdmin').style.display = 'none';
+                mostrarToast('Logout realizado!');
+            }
+        }
 
         // ========== TABS ==========
         function mudarTab(tab) {
@@ -848,7 +961,6 @@
         async function deletarServico(id) {
             if (!confirm('Remover este serviço?')) return;
             try {
-                // Implementar DELETE no backend ou apenas desativar
                 mostrarToast('Funcionalidade: desativar serviço');
             } catch (error) {
                 mostrarToast('Erro ao deletar', 'error');
@@ -1192,22 +1304,6 @@
         }
 
         // ========== UTILITÁRIOS ==========
-        function mudarTab(tab) {
-            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-            document.getElementById(`tab-${tab}`).classList.add('active');
-            document.querySelectorAll('.nav-links a').forEach(el => el.classList.remove('active'));
-            const links = document.querySelectorAll('.nav-links a');
-            const tabMap = { 'dashboard': 0, 'catalogo': 1, 'planos': 2, 'agendamentos': 3, 'estoque': 4, 'barbearias': 5 };
-            if (links[tabMap[tab]]) links[tabMap[tab]].classList.add('active');
-            
-            if (tab === 'dashboard') carregarDashboard();
-            if (tab === 'catalogo') carregarServicos();
-            if (tab === 'planos') carregarPlanos();
-            if (tab === 'agendamentos') carregarAgendamentos();
-            if (tab === 'estoque') carregarEstoque();
-            if (tab === 'barbearias') carregarBarbearias();
-        }
-
         function fecharModal(id) {
             document.getElementById(id).classList.remove('active');
         }
@@ -1226,10 +1322,10 @@
             setTimeout(() => toast.classList.remove('show'), 3000);
         }
 
-        function logoutAdmin() {
-            localStorage.removeItem('adminEmporio');
-            window.location.href = '/';
-        }
+        // ========== INICIALIZAÇÃO ==========
+        document.addEventListener('DOMContentLoaded', function() {
+            verificarAdminLogado();
+        });
 
         console.log('🔧 Painel Admin Empório Barbe carregado!');
         console.log('🏢 Barbearia ID:', barbeariaId);

@@ -351,6 +351,71 @@ app.get('/api/clientes', async (req, res) => {
     }
 });
 
+// ========== ROTAS DE ADMIN (BARBEARIA) ==========
+
+// Login do Admin (Barbearia)
+app.post('/api/admin/login', async (req, res) => {
+    const { email, senha } = req.body;
+
+    if (!email || !senha) {
+        return res.status(400).json({ error: 'Email e senha são obrigatórios' });
+    }
+
+    try {
+        const adminEmail = process.env.ADMIN_EMAIL || 'admin@barbearia.com';
+        const adminSenha = process.env.ADMIN_PASSWORD || 'admin123';
+
+        if (email === adminEmail && senha === adminSenha) {
+            const token = Buffer.from(`${email}:${Date.now()}`).toString('base64');
+            
+            res.json({
+                success: true,
+                token: token,
+                admin: {
+                    nome: 'Administrador',
+                    email: adminEmail
+                },
+                message: 'Login realizado com sucesso!'
+            });
+        } else {
+            res.status(401).json({ error: 'Email ou senha incorretos' });
+        }
+    } catch (error) {
+        console.error('Erro no login admin:', error);
+        res.status(500).json({ error: 'Erro ao fazer login' });
+    }
+});
+
+// Verificar token do admin
+app.get('/api/admin/verificar', async (req, res) => {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+
+    if (!token) {
+        return res.status(401).json({ error: 'Token não fornecido' });
+    }
+
+    try {
+        const decoded = Buffer.from(token, 'base64').toString();
+        const [email] = decoded.split(':');
+        
+        const adminEmail = process.env.ADMIN_EMAIL || 'admin@barbearia.com';
+        
+        if (email === adminEmail) {
+            res.json({
+                success: true,
+                admin: {
+                    nome: 'Administrador',
+                    email: adminEmail
+                }
+            });
+        } else {
+            res.status(401).json({ error: 'Token inválido' });
+        }
+    } catch (error) {
+        res.status(401).json({ error: 'Token inválido' });
+    }
+});
+
 // ========== ROTAS DE BARBEARIAS ==========
 
 app.get('/api/barbearias', async (req, res) => {
@@ -841,7 +906,7 @@ app.post('/api/precos', async (req, res) => {
 
 // ========== ROTAS DE MERCADO PAGO ==========
 
-// Gerar pagamento - CORRIGIDO
+// Gerar pagamento
 app.post('/api/pagamento/checkout', async (req, res) => {
     const { 
         clienteId, 
@@ -953,10 +1018,9 @@ app.post('/api/pagamento/checkout', async (req, res) => {
 
         console.log(`📱 Telefone final: (${ddd}) ${telefoneNumero}`);
 
-        const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+        const baseUrl = process.env.BASE_URL || 'https://barbeonline.vercel.app';
         console.log('🌐 Base URL:', baseUrl);
 
-        // ===== PAYER =====
         const payer = {
             name: (clienteData.nome || clienteNome || 'Cliente').substring(0, 50),
             email: (clienteEmail || clienteData.email || 'cliente@email.com').substring(0, 50),
@@ -968,7 +1032,6 @@ app.post('/api/pagamento/checkout', async (req, res) => {
 
         console.log('👤 Payer:', JSON.stringify(payer, null, 2));
 
-        // ===== PREFERÊNCIA SEM AUTO_RETURN =====
         const preference = {
             items: [{
                 id: agendamentoIdInt ? agendamentoIdInt.toString() : Date.now().toString(),
@@ -992,7 +1055,7 @@ app.post('/api/pagamento/checkout', async (req, res) => {
             },
             notification_url: `${baseUrl}/api/pagamento/webhook`,
             external_reference: agendamentoIdInt ? agendamentoIdInt.toString() : Date.now().toString(),
-            statement_descriptor: 'EMPÓRIO BARBE'
+            statement_descriptor: 'BARBEONLINE'
         };
 
         console.log('📤 Enviando para Mercado Pago...');
