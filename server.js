@@ -1,0 +1,1163 @@
+const express = require('express');
+const { Pool } = require('pg');
+const cors = require('cors');
+const mercadopago = require('mercadopago');
+require('dotenv').config();
+
+const app = express();
+const port = process.env.PORT || 3000;
+
+// ========== CONFIGURAÇÕES ==========
+app.use(cors());
+app.use(express.json());
+app.use(express.static('public'));
+
+// ========== NEON POSTGRESQL ==========
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: {
+        rejectUnauthorized: false
+    }
+});
+
+// ========== MERCADO PAGO ==========
+mercadopago.configure({
+    access_token: process.env.MERCADO_PAGO_ACCESS_TOKEN
+});
+
+// ========== INICIALIZAR BANCO ==========
+async function initDatabase() {
+    try {
+        console.log('🔄 Inicializando banco de dados...');
+
+        const tabelas = await pool.query(`
+            SELECT table_name 
+            FROM information_schema.tables 
+            WHERE table_schema = 'public'
+        `);
+        
+        const tabelasExistentes = tabelas.rows.map(t => t.table_name);
+        console.log('📋 Tabelas existentes:', tabelasExistentes);
+
+        if (tabelasExistentes.length === 0) {
+            console.log('🔧 Criando todas as tabelas...');
+            
+            await pool.query(`
+                CREATE TABLE barbearias (
+                    id SERIAL PRIMARY KEY,
+                    nome VARCHAR(100) NOT NULL,
+                    slug VARCHAR(100) UNIQUE NOT NULL,
+                    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            `);
+
+            await pool.query(`
+                CREATE TABLE clientes (
+                    id SERIAL PRIMARY KEY,
+                    nome VARCHAR(100) NOT NULL,
+                    email VARCHAR(100) UNIQUE NOT NULL,
+                    senha VARCHAR(255) NOT NULL,
+                    telefone VARCHAR(20),
+                    assinatura VARCHAR(50) DEFAULT 'nenhum',
+                    cortes_gratis INTEGER DEFAULT 0,
+                    pontos INTEGER DEFAULT 0,
+                    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    ultimo_login TIMESTAMP
+                )
+            `);
+
+            await pool.query(`
+                CREATE TABLE planos (
+                    id SERIAL PRIMARY KEY,
+                    barbearia_id INTEGER REFERENCES barbearias(id) ON DELETE CASCADE,
+                    nome VARCHAR(50) NOT NULL,
+                    descricao TEXT,
+                    preco DECIMAL(10,2) NOT NULL,
+                    cortes_por_mes INTEGER NOT NULL,
+                    prioridade BOOLEAN DEFAULT FALSE,
+                    ativo BOOLEAN DEFAULT TRUE,
+                    UNIQUE(barbearia_id, nome)
+                )
+            `);
+
+            await pool.query(`
+                CREATE TABLE servicos_avulsos (
+                    id SERIAL PRIMARY KEY,
+                    barbearia_id INTEGER REFERENCES barbearias(id) ON DELETE CASCADE,
+                    nome VARCHAR(50) NOT NULL,
+                    descricao TEXT,
+                    preco DECIMAL(10,2) NOT NULL,
+                    duracao INTEGER DEFAULT 30,
+                    ativo BOOLEAN DEFAULT TRUE,
+                    UNIQUE(barbearia_id, nome)
+                )
+            `);
+
+            await pool.query(`
+                CREATE TABLE agendamentos (
+                    id SERIAL PRIMARY KEY,
+                    barbearia_id INTEGER REFERENCES barbearias(id) ON DELETE CASCADE,
+                    cliente_id INTEGER REFERENCES clientes(id) ON DELETE SET NULL,
+                    cliente_nome VARCHAR(100) NOT NULL,
+                    servico VARCHAR(50) NOT NULL,
+                    plano_id INTEGER REFERENCES planos(id) ON DELETE SET NULL,
+                    data_hora TIMESTAMP NOT NULL,
+                    observacao TEXT,
+                    status VARCHAR(20) DEFAULT 'aguardando',
+                    prioridade BOOLEAN DEFAULT FALSE,
+                    pagamento_id VARCHAR(100),
+                    valor_pago DECIMAL(10,2),
+                    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            `);
+
+            await pool.query(`
+                CREATE TABLE pagamentos (
+                    id SERIAL PRIMARY KEY,
+                    cliente_id INTEGER REFERENCES clientes(id) ON DELETE CASCADE,
+                    agendamento_id INTEGER REFERENCES agendamentos(id) ON DELETE SET NULL,
+                    mp_preference_id VARCHAR(100) UNIQUE,
+                    mp_payment_id VARCHAR(100),
+                    valor DECIMAL(10,2) NOT NULL,
+                    status VARCHAR(50) DEFAULT 'pendente',
+                    metodo VARCHAR(50),
+                    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            `);
+
+            await pool.query(`
+                CREATE TABLE precos (
+                    id SERIAL PRIMARY KEY,
+                    barbearia_id INTEGER REFERENCES barbearias(id) ON DELETE CASCADE,
+                    servico VARCHAR(50) NOT NULL,
+                    preco DECIMAL(10,2) NOT NULL,
+                    UNIQUE(barbearia_id, servico)
+                )
+            `);
+
+            await pool.query(`
+                CREATE TABLE estoque (
+                    id SERIAL PRIMARY KEY,
+                    barbearia_id INTEGER REFERENCES barbearias(id) ON DELETE CASCADE,
+                    item VARCHAR(100) NOT NULL,
+                    quantidade INTEGER DEFAULT 0,
+                    UNIQUE(barbearia_id, item)
+                )
+            `);
+
+            console.log('✅ Todas as tabelas criadas!');
+
+            await pool.query(
+                `INSERT INTO barbearias (nome, slug) VALUES ($1, $2)`,
+                ['Empório Barbe', 'emporio-barbe']
+            );
+            console.log('✅ Barbearia padrão criada!');
+
+            const planos = [
+                { nome: 'Avulso', descricao: 'Corte único sem compromisso', preco: 45.00, cortes_por_mes: 1, prioridade: false },
+                { nome: 'Mensal', descricao: '1 corte por semana com prioridade', preco: 89.90, cortes_por_mes: 4, prioridade: true },
+                { nome: 'Familiar', descricao: 'Até 4 pessoas, cortes ilimitados', preco: 159.90, cortes_por_mes: 12, prioridade: true },
+                { nome: 'Premium', descricao: 'Cortes ilimitados + prioridade máxima', preco: 199.90, cortes_por_mes: 0, prioridade: true }
+            ];
+
+            for (const plano of planos) {
+                await pool.query(
+                    `INSERT INTO planos (barbearia_id, nome, descricao, preco, cortes_por_mes, prioridade) 
+                     VALUES ($1, $2, $3, $4, $5, $6)`,
+                    [1, plano.nome, plano.descricao, plano.preco, plano.cortes_por_mes, plano.prioridade]
+                );
+            }
+            console.log('✅ Planos padrão criados!');
+
+            const servicos = [
+                { nome: 'Corte de Cabelo', descricao: 'Corte completo com tesoura e máquina', preco: 45.00, duracao: 30 },
+                { nome: 'Barba', descricao: 'Barba completa com navalha', preco: 35.00, duracao: 25 },
+                { nome: 'Corte + Barba', descricao: 'Pacote completo de beleza', preco: 70.00, duracao: 50 },
+                { nome: 'Sobrancelha', descricao: 'Design de sobrancelhas', preco: 20.00, duracao: 15 },
+                { nome: 'Hidratação', descricao: 'Hidratação capilar profunda', preco: 30.00, duracao: 20 }
+            ];
+
+            for (const servico of servicos) {
+                await pool.query(
+                    `INSERT INTO servicos_avulsos (barbearia_id, nome, descricao, preco, duracao) 
+                     VALUES ($1, $2, $3, $4, $5)`,
+                    [1, servico.nome, servico.descricao, servico.preco, servico.duracao]
+                );
+            }
+            console.log('✅ Serviços padrão criados!');
+        } else {
+            console.log('✅ Banco já possui tabelas, verificando estrutura...');
+            
+            const checkSenha = await pool.query(`
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'clientes' AND column_name = 'senha'
+            `);
+
+            if (checkSenha.rows.length === 0) {
+                console.log('🔧 Adicionando coluna senha...');
+                await pool.query(`ALTER TABLE clientes ADD COLUMN senha VARCHAR(255) NOT NULL DEFAULT ''`);
+                console.log('✅ Coluna senha adicionada!');
+            }
+
+            const barbeariaCheck = await pool.query(`SELECT * FROM barbearias WHERE slug = 'emporio-barbe'`);
+            if (barbeariaCheck.rows.length === 0) {
+                await pool.query(`INSERT INTO barbearias (nome, slug) VALUES ('Empório Barbe', 'emporio-barbe')`);
+                console.log('✅ Barbearia padrão criada!');
+            }
+        }
+
+        console.log('✅ Banco de dados pronto!');
+        return 1;
+        
+    } catch (error) {
+        console.error('❌ Erro ao inicializar banco:', error);
+        throw error;
+    }
+}
+
+// ========== ROTAS DE AUTENTICAÇÃO ==========
+
+app.post('/api/clientes/registrar', async (req, res) => {
+    const { nome, email, senha, telefone } = req.body;
+
+    if (!nome || !email || !senha) {
+        return res.status(400).json({ error: 'Nome, email e senha são obrigatórios' });
+    }
+
+    try {
+        const existe = await pool.query('SELECT id FROM clientes WHERE email = $1', [email]);
+        if (existe.rows.length > 0) {
+            return res.status(400).json({ error: 'Email já cadastrado' });
+        }
+
+        const senhaHash = Buffer.from(senha).toString('base64');
+
+        const result = await pool.query(
+            `INSERT INTO clientes (nome, email, senha, telefone) 
+             VALUES ($1, $2, $3, $4) 
+             RETURNING id, nome, email, telefone, assinatura, cortes_gratis, pontos, criado_em`,
+            [nome, email, senhaHash, telefone || null]
+        );
+
+        res.json({
+            success: true,
+            cliente: result.rows[0],
+            message: 'Cliente registrado com sucesso!'
+        });
+    } catch (error) {
+        console.error('Erro ao registrar cliente:', error);
+        res.status(500).json({ error: 'Erro ao registrar cliente' });
+    }
+});
+
+app.post('/api/clientes/login', async (req, res) => {
+    const { email, senha } = req.body;
+
+    if (!email || !senha) {
+        return res.status(400).json({ error: 'Email e senha são obrigatórios' });
+    }
+
+    try {
+        const senhaHash = Buffer.from(senha).toString('base64');
+
+        const result = await pool.query(
+            `SELECT id, nome, email, telefone, assinatura, cortes_gratis, pontos, criado_em 
+             FROM clientes 
+             WHERE email = $1 AND senha = $2`,
+            [email, senhaHash]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(401).json({ error: 'Email ou senha incorretos' });
+        }
+
+        await pool.query(
+            'UPDATE clientes SET ultimo_login = CURRENT_TIMESTAMP WHERE id = $1',
+            [result.rows[0].id]
+        );
+
+        res.json({
+            success: true,
+            cliente: result.rows[0],
+            message: 'Login realizado com sucesso!'
+        });
+    } catch (error) {
+        console.error('Erro no login:', error);
+        res.status(500).json({ error: 'Erro ao fazer login' });
+    }
+});
+
+app.get('/api/clientes/:id', async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const result = await pool.query(
+            `SELECT id, nome, email, telefone, assinatura, cortes_gratis, pontos, criado_em, ultimo_login 
+             FROM clientes 
+             WHERE id = $1`,
+            [id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Cliente não encontrado' });
+        }
+
+        res.json(result.rows[0]);
+    } catch (error) {
+        console.error('Erro ao buscar cliente:', error);
+        res.status(500).json({ error: 'Erro ao buscar cliente' });
+    }
+});
+
+app.put('/api/clientes/:id', async (req, res) => {
+    const { id } = req.params;
+    const { nome, telefone, assinatura } = req.body;
+
+    try {
+        const result = await pool.query(
+            `UPDATE clientes 
+             SET nome = COALESCE($1, nome), 
+                 telefone = COALESCE($2, telefone),
+                 assinatura = COALESCE($3, assinatura)
+             WHERE id = $4
+             RETURNING id, nome, email, telefone, assinatura, cortes_gratis, pontos`,
+            [nome, telefone, assinatura, id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Cliente não encontrado' });
+        }
+
+        res.json({
+            success: true,
+            cliente: result.rows[0],
+            message: 'Cliente atualizado com sucesso!'
+        });
+    } catch (error) {
+        console.error('Erro ao atualizar cliente:', error);
+        res.status(500).json({ error: 'Erro ao atualizar cliente' });
+    }
+});
+
+app.get('/api/clientes', async (req, res) => {
+    try {
+        const result = await pool.query(
+            'SELECT id, nome, email, telefone, assinatura, cortes_gratis, pontos, criado_em FROM clientes ORDER BY id'
+        );
+        res.json(result.rows);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ========== ROTAS DE BARBEARIAS ==========
+
+app.get('/api/barbearias', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM barbearias ORDER BY id');
+        res.json(result.rows);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/barbearias', async (req, res) => {
+    const { nome, slug } = req.body;
+
+    if (!nome || !slug) {
+        return res.status(400).json({ error: 'Nome e slug são obrigatórios' });
+    }
+
+    try {
+        const existe = await pool.query('SELECT id FROM barbearias WHERE slug = $1', [slug]);
+        if (existe.rows.length > 0) {
+            return res.status(400).json({ error: 'Slug já está em uso' });
+        }
+
+        const result = await pool.query(
+            'INSERT INTO barbearias (nome, slug) VALUES ($1, $2) RETURNING *',
+            [nome, slug]
+        );
+
+        const barbeariaId = result.rows[0].id;
+        
+        const planos = [
+            { nome: 'Avulso', descricao: 'Corte único sem compromisso', preco: 45.00, cortes_por_mes: 1, prioridade: false },
+            { nome: 'Mensal', descricao: '1 corte por semana com prioridade', preco: 89.90, cortes_por_mes: 4, prioridade: true },
+            { nome: 'Familiar', descricao: 'Até 4 pessoas, cortes ilimitados', preco: 159.90, cortes_por_mes: 12, prioridade: true },
+            { nome: 'Premium', descricao: 'Cortes ilimitados + prioridade máxima', preco: 199.90, cortes_por_mes: 0, prioridade: true }
+        ];
+
+        for (const plano of planos) {
+            await pool.query(
+                `INSERT INTO planos (barbearia_id, nome, descricao, preco, cortes_por_mes, prioridade) 
+                 VALUES ($1, $2, $3, $4, $5, $6)`,
+                [barbeariaId, plano.nome, plano.descricao, plano.preco, plano.cortes_por_mes, plano.prioridade]
+            );
+        }
+
+        const servicos = [
+            { nome: 'Corte de Cabelo', descricao: 'Corte completo com tesoura e máquina', preco: 45.00, duracao: 30 },
+            { nome: 'Barba', descricao: 'Barba completa com navalha', preco: 35.00, duracao: 25 },
+            { nome: 'Corte + Barba', descricao: 'Pacote completo de beleza', preco: 70.00, duracao: 50 }
+        ];
+
+        for (const servico of servicos) {
+            await pool.query(
+                `INSERT INTO servicos_avulsos (barbearia_id, nome, descricao, preco, duracao) 
+                 VALUES ($1, $2, $3, $4, $5)`,
+                [barbeariaId, servico.nome, servico.descricao, servico.preco, servico.duracao]
+            );
+        }
+
+        res.json(result.rows[0]);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ========== ROTAS DE SERVIÇOS ==========
+
+app.get('/api/servicos/:barbeariaId', async (req, res) => {
+    const { barbeariaId } = req.params;
+    console.log(`📋 Listando serviços da barbearia ${barbeariaId}`);
+
+    try {
+        const result = await pool.query(
+            'SELECT * FROM servicos_avulsos WHERE barbearia_id = $1 ORDER BY id',
+            [barbeariaId]
+        );
+        console.log(`✅ ${result.rows.length} serviços encontrados`);
+        res.json(result.rows);
+    } catch (error) {
+        console.error('❌ Erro ao listar serviços:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/servicos', async (req, res) => {
+    const { barbeariaId, nome, descricao, preco, duracao } = req.body;
+    console.log(`🆕 Criando/atualizando serviço: ${nome} - R$ ${preco}`);
+
+    if (!barbeariaId || !nome || !preco) {
+        return res.status(400).json({ error: 'Campos obrigatórios faltando' });
+    }
+
+    try {
+        const existe = await pool.query(
+            'SELECT id FROM servicos_avulsos WHERE barbearia_id = $1 AND nome = $2',
+            [barbeariaId, nome]
+        );
+
+        let result;
+        if (existe.rows.length > 0) {
+            result = await pool.query(
+                `UPDATE servicos_avulsos 
+                 SET descricao = $1, preco = $2, duracao = $3
+                 WHERE barbearia_id = $4 AND nome = $5
+                 RETURNING *`,
+                [descricao || '', preco, duracao || 30, barbeariaId, nome]
+            );
+            console.log(`✅ Serviço atualizado: ${nome}`);
+        } else {
+            result = await pool.query(
+                `INSERT INTO servicos_avulsos (barbearia_id, nome, descricao, preco, duracao) 
+                 VALUES ($1, $2, $3, $4, $5) 
+                 RETURNING *`,
+                [barbeariaId, nome, descricao || '', preco, duracao || 30]
+            );
+            console.log(`✅ Serviço criado: ${nome}`);
+        }
+
+        res.json(result.rows[0]);
+    } catch (error) {
+        console.error('❌ Erro ao salvar serviço:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.delete('/api/servicos/:id', async (req, res) => {
+    const { id } = req.params;
+    console.log(`🗑️ Deletando serviço ${id}`);
+
+    try {
+        const result = await pool.query(
+            'DELETE FROM servicos_avulsos WHERE id = $1 RETURNING *',
+            [id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Serviço não encontrado' });
+        }
+
+        res.json({ success: true, message: 'Serviço removido com sucesso' });
+    } catch (error) {
+        console.error('❌ Erro ao deletar serviço:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ========== ROTAS DE PLANOS ==========
+
+app.get('/api/planos/:barbeariaId', async (req, res) => {
+    const { barbeariaId } = req.params;
+    console.log(`📋 Listando planos da barbearia ${barbeariaId}`);
+
+    try {
+        const result = await pool.query(
+            'SELECT * FROM planos WHERE barbearia_id = $1 ORDER BY preco',
+            [barbeariaId]
+        );
+        res.json(result.rows);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/planos', async (req, res) => {
+    const { barbeariaId, nome, descricao, preco, cortes_por_mes, prioridade } = req.body;
+    console.log(`🆕 Criando/atualizando plano: ${nome} - R$ ${preco}`);
+
+    if (!barbeariaId || !nome || !preco) {
+        return res.status(400).json({ error: 'Campos obrigatórios faltando' });
+    }
+
+    try {
+        const existe = await pool.query(
+            'SELECT id FROM planos WHERE barbearia_id = $1 AND nome = $2',
+            [barbeariaId, nome]
+        );
+
+        let result;
+        if (existe.rows.length > 0) {
+            result = await pool.query(
+                `UPDATE planos 
+                 SET descricao = $1, preco = $2, cortes_por_mes = $3, prioridade = $4
+                 WHERE barbearia_id = $5 AND nome = $6
+                 RETURNING *`,
+                [descricao || '', preco, cortes_por_mes || 1, prioridade || false, barbeariaId, nome]
+            );
+        } else {
+            result = await pool.query(
+                `INSERT INTO planos (barbearia_id, nome, descricao, preco, cortes_por_mes, prioridade) 
+                 VALUES ($1, $2, $3, $4, $5, $6) 
+                 RETURNING *`,
+                [barbeariaId, nome, descricao || '', preco, cortes_por_mes || 1, prioridade || false]
+            );
+        }
+
+        res.json(result.rows[0]);
+    } catch (error) {
+        console.error('❌ Erro ao salvar plano:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ========== ROTAS DE AGENDAMENTOS ==========
+
+app.get('/api/agendamentos/:barbeariaId', async (req, res) => {
+    const { barbeariaId } = req.params;
+
+    try {
+        const result = await pool.query(
+            `SELECT a.*, c.nome as cliente_nome_completo 
+             FROM agendamentos a
+             LEFT JOIN clientes c ON a.cliente_id = c.id
+             WHERE a.barbearia_id = $1 
+             ORDER BY a.data_hora DESC`,
+            [barbeariaId]
+        );
+        res.json(result.rows);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/api/agendamentos/cliente/:clienteId', async (req, res) => {
+    const { clienteId } = req.params;
+
+    try {
+        const result = await pool.query(
+            'SELECT * FROM agendamentos WHERE cliente_id = $1 ORDER BY data_hora DESC',
+            [clienteId]
+        );
+        res.json(result.rows);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/agendamentos', async (req, res) => {
+    const { 
+        clienteId, 
+        clienteNome, 
+        servico, 
+        planoId, 
+        data_hora, 
+        observacao, 
+        prioridade 
+    } = req.body;
+
+    console.log('📝 Dados recebidos:', req.body);
+
+    if (!clienteNome) {
+        return res.status(400).json({ error: 'Nome do cliente é obrigatório' });
+    }
+    if (!servico) {
+        return res.status(400).json({ error: 'Serviço é obrigatório' });
+    }
+    if (!data_hora) {
+        return res.status(400).json({ error: 'Data e hora são obrigatórias' });
+    }
+
+    if (isNaN(new Date(data_hora).getTime())) {
+        return res.status(400).json({ error: 'Formato de data inválido' });
+    }
+
+    try {
+        const barbeariaIdInt = 1;
+        console.log('🏢 Barbearia ID:', barbeariaIdInt);
+
+        let clienteIdInt = null;
+        if (clienteId && clienteId !== 'null' && clienteId !== 'undefined' && clienteId !== '') {
+            clienteIdInt = parseInt(clienteId);
+            if (isNaN(clienteIdInt) || clienteIdInt <= 0) {
+                clienteIdInt = null;
+            } else {
+                const clienteExiste = await pool.query(
+                    'SELECT id FROM clientes WHERE id = $1',
+                    [clienteIdInt]
+                );
+                if (clienteExiste.rows.length === 0) {
+                    clienteIdInt = null;
+                }
+            }
+        }
+
+        let planoIdInt = null;
+        if (planoId && planoId !== 'null' && planoId !== 'undefined' && planoId !== '') {
+            planoIdInt = parseInt(planoId);
+            if (isNaN(planoIdInt) || planoIdInt <= 0) {
+                planoIdInt = null;
+            }
+        }
+
+        let valor = 0;
+        const servicoDb = await pool.query(
+            'SELECT preco FROM servicos_avulsos WHERE nome = $1 AND barbearia_id = $2',
+            [servico, barbeariaIdInt]
+        );
+        if (servicoDb.rows.length > 0) {
+            valor = servicoDb.rows[0].preco;
+        } else {
+            valor = 45.00;
+        }
+
+        const result = await pool.query(
+            `INSERT INTO agendamentos 
+             (barbearia_id, cliente_id, cliente_nome, servico, plano_id, data_hora, observacao, prioridade, valor_pago) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
+             RETURNING *`,
+            [
+                barbeariaIdInt, 
+                clienteIdInt, 
+                clienteNome, 
+                servico, 
+                planoIdInt, 
+                data_hora, 
+                observacao || null, 
+                prioridade || false, 
+                valor
+            ]
+        );
+
+        if (clienteIdInt) {
+            await pool.query(
+                'UPDATE clientes SET pontos = pontos + 1 WHERE id = $1',
+                [clienteIdInt]
+            );
+
+            const cliente = await pool.query(
+                'SELECT pontos FROM clientes WHERE id = $1',
+                [clienteIdInt]
+            );
+            
+            if (cliente.rows[0] && cliente.rows[0].pontos % 4 === 0) {
+                await pool.query(
+                    'UPDATE clientes SET cortes_gratis = cortes_gratis + 1 WHERE id = $1',
+                    [clienteIdInt]
+                );
+                console.log('🎉 Cliente ganhou corte grátis!');
+            }
+        }
+
+        res.json({
+            ...result.rows[0],
+            valor_pago: valor,
+            message: 'Agendamento criado com sucesso!'
+        });
+
+    } catch (error) {
+        console.error('❌ Erro ao criar agendamento:', error);
+        res.status(500).json({ 
+            error: 'Erro ao criar agendamento: ' + error.message 
+        });
+    }
+});
+
+app.put('/api/agendamentos/:id', async (req, res) => {
+    const { id } = req.params;
+    const { status, pagamento_id } = req.body;
+
+    try {
+        const result = await pool.query(
+            'UPDATE agendamentos SET status = $1, pagamento_id = COALESCE($2, pagamento_id) WHERE id = $3 RETURNING *',
+            [status, pagamento_id, id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Agendamento não encontrado' });
+        }
+
+        res.json(result.rows[0]);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.delete('/api/agendamentos/:id', async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const result = await pool.query('DELETE FROM agendamentos WHERE id = $1 RETURNING *', [id]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Agendamento não encontrado' });
+        }
+
+        res.json({ 
+            success: true, 
+            message: 'Agendamento removido com sucesso!'
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ========== ROTAS DE ESTOQUE ==========
+
+app.get('/api/estoque/:barbeariaId', async (req, res) => {
+    const { barbeariaId } = req.params;
+
+    try {
+        const result = await pool.query(
+            'SELECT * FROM estoque WHERE barbearia_id = $1 ORDER BY item',
+            [barbeariaId]
+        );
+        res.json(result.rows);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/estoque', async (req, res) => {
+    const { barbeariaId, item, quantidade } = req.body;
+
+    if (!barbeariaId || !item || quantidade === undefined) {
+        return res.status(400).json({ error: 'Campos obrigatórios faltando' });
+    }
+
+    try {
+        const result = await pool.query(
+            `INSERT INTO estoque (barbearia_id, item, quantidade) 
+             VALUES ($1, $2, $3) 
+             ON CONFLICT (barbearia_id, item) 
+             DO UPDATE SET quantidade = EXCLUDED.quantidade 
+             RETURNING *`,
+            [barbeariaId, item, quantidade]
+        );
+        res.json(result.rows[0]);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ========== ROTAS DE FILA ==========
+
+app.get('/api/fila/:barbeariaId', async (req, res) => {
+    const { barbeariaId } = req.params;
+
+    try {
+        const result = await pool.query(
+            `SELECT COUNT(*) as total 
+             FROM agendamentos 
+             WHERE barbearia_id = $1 AND status IN ('aguardando', 'confirmado')`,
+            [barbeariaId]
+        );
+        res.json({ fila: parseInt(result.rows[0].total) || 0 });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ========== ROTAS DE PREÇOS ==========
+
+app.get('/api/precos/:barbeariaId', async (req, res) => {
+    const { barbeariaId } = req.params;
+
+    try {
+        const result = await pool.query(
+            'SELECT * FROM precos WHERE barbearia_id = $1',
+            [barbeariaId]
+        );
+        res.json(result.rows);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/precos', async (req, res) => {
+    const { barbeariaId, servico, preco } = req.body;
+
+    if (!barbeariaId || !servico || preco === undefined) {
+        return res.status(400).json({ error: 'Campos obrigatórios faltando' });
+    }
+
+    try {
+        const result = await pool.query(
+            `INSERT INTO precos (barbearia_id, servico, preco) 
+             VALUES ($1, $2, $3) 
+             ON CONFLICT (barbearia_id, servico) 
+             DO UPDATE SET preco = EXCLUDED.preco 
+             RETURNING *`,
+            [barbeariaId, servico, preco]
+        );
+        res.json(result.rows[0]);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ========== ROTAS DE MERCADO PAGO ==========
+
+// Gerar pagamento - CORRIGIDO
+app.post('/api/pagamento/checkout', async (req, res) => {
+    const { 
+        clienteId, 
+        clienteNome, 
+        clienteEmail, 
+        servico, 
+        valor, 
+        descricao, 
+        agendamentoId 
+    } = req.body;
+
+    console.log('💳 INICIANDO PAGAMENTO:');
+    console.log('  Cliente ID:', clienteId);
+    console.log('  Cliente:', clienteNome, clienteEmail);
+    console.log('  Serviço:', servico);
+    console.log('  Valor:', valor);
+    console.log('  Agendamento:', agendamentoId);
+
+    if (!clienteId) {
+        return res.status(400).json({ 
+            success: false, 
+            error: 'ID do cliente é obrigatório' 
+        });
+    }
+
+    const clienteIdInt = parseInt(clienteId);
+    if (isNaN(clienteIdInt) || clienteIdInt <= 0) {
+        return res.status(400).json({ 
+            success: false, 
+            error: 'ID do cliente inválido' 
+        });
+    }
+
+    if (!clienteEmail) {
+        return res.status(400).json({ 
+            success: false, 
+            error: 'Email do cliente é obrigatório' 
+        });
+    }
+    if (!valor || isNaN(parseFloat(valor)) || parseFloat(valor) <= 0) {
+        return res.status(400).json({ 
+            success: false, 
+            error: 'Valor inválido' 
+        });
+    }
+    if (!descricao) {
+        return res.status(400).json({ 
+            success: false, 
+            error: 'Descrição é obrigatória' 
+        });
+    }
+
+    try {
+        const cliente = await pool.query(
+            'SELECT * FROM clientes WHERE id = $1',
+            [clienteIdInt]
+        );
+        
+        if (cliente.rows.length === 0) {
+            return res.status(404).json({ 
+                success: false, 
+                error: 'Cliente não encontrado' 
+            });
+        }
+
+        const clienteData = cliente.rows[0];
+        const valorNumerico = parseFloat(valor);
+
+        let agendamentoIdInt = null;
+        if (agendamentoId && agendamentoId !== 'null' && agendamentoId !== 'undefined' && agendamentoId !== '') {
+            agendamentoIdInt = parseInt(agendamentoId);
+            if (isNaN(agendamentoIdInt) || agendamentoIdInt <= 0) {
+                agendamentoIdInt = null;
+            }
+        }
+
+        // ===== TRATAR O TELEFONE =====
+        let telefoneNumero = 999999999;
+        let ddd = '11';
+
+        if (clienteData.telefone) {
+            const numeros = clienteData.telefone.replace(/\D/g, '');
+            console.log('📱 Números extraídos:', numeros);
+            
+            if (numeros.length >= 10) {
+                ddd = numeros.slice(0, 2);
+                telefoneNumero = parseInt(numeros.slice(2)) || 999999999;
+                console.log(`📱 DDD: ${ddd}, Número: ${telefoneNumero}`);
+            } else if (numeros.length >= 8) {
+                ddd = '11';
+                telefoneNumero = parseInt(numeros) || 999999999;
+                console.log(`📱 DDD padrão (11), Número: ${telefoneNumero}`);
+            } else {
+                ddd = '11';
+                telefoneNumero = 999999999;
+                console.log('📱 Telefone inválido, usando padrão');
+            }
+        } else {
+            ddd = '11';
+            telefoneNumero = 999999999;
+            console.log('📱 Sem telefone, usando padrão');
+        }
+
+        if (telefoneNumero < 10000000 || telefoneNumero > 999999999) {
+            ddd = '11';
+            telefoneNumero = 999999999;
+            console.log('📱 Número inválido, usando padrão');
+        }
+
+        console.log(`📱 Telefone final: (${ddd}) ${telefoneNumero}`);
+
+        const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+        console.log('🌐 Base URL:', baseUrl);
+
+        // ===== PAYER =====
+        const payer = {
+            name: (clienteData.nome || clienteNome || 'Cliente').substring(0, 50),
+            email: (clienteEmail || clienteData.email || 'cliente@email.com').substring(0, 50),
+            phone: {
+                area_code: ddd,
+                number: telefoneNumero
+            }
+        };
+
+        console.log('👤 Payer:', JSON.stringify(payer, null, 2));
+
+        // ===== PREFERÊNCIA SEM AUTO_RETURN =====
+        const preference = {
+            items: [{
+                id: agendamentoIdInt ? agendamentoIdInt.toString() : Date.now().toString(),
+                title: descricao,
+                description: servico || descricao,
+                unit_price: valorNumerico,
+                quantity: 1,
+                currency_id: 'BRL',
+                picture_url: 'https://images.unsplash.com/photo-1585747860715-2ba37e788b70?w=200&h=200&fit=crop'
+            }],
+            payer: payer,
+            back_urls: {
+                success: `${baseUrl}/sucesso.html`,
+                failure: `${baseUrl}/falha.html`,
+                pending: `${baseUrl}/pendente.html`
+            },
+            payment_methods: {
+                installments: 1,
+                excluded_payment_methods: [],
+                excluded_payment_types: []
+            },
+            notification_url: `${baseUrl}/api/pagamento/webhook`,
+            external_reference: agendamentoIdInt ? agendamentoIdInt.toString() : Date.now().toString(),
+            statement_descriptor: 'EMPÓRIO BARBE'
+        };
+
+        console.log('📤 Enviando para Mercado Pago...');
+        const response = await mercadopago.preferences.create(preference);
+        console.log('✅ Preferência criada:', response.body.id);
+        console.log('🔗 Link:', response.body.init_point);
+
+        await pool.query(
+            `INSERT INTO pagamentos 
+             (cliente_id, agendamento_id, mp_preference_id, valor, status) 
+             VALUES ($1, $2, $3, $4, $5)`,
+            [
+                clienteIdInt, 
+                agendamentoIdInt, 
+                response.body.id, 
+                valorNumerico, 
+                'pendente'
+            ]
+        );
+
+        if (agendamentoIdInt) {
+            await pool.query(
+                'UPDATE agendamentos SET pagamento_id = $1 WHERE id = $2',
+                [response.body.id, agendamentoIdInt]
+            );
+            console.log('✅ Agendamento atualizado com pagamento_id');
+        }
+
+        res.json({
+            success: true,
+            preference_id: response.body.id,
+            init_point: response.body.init_point,
+            sandbox_init_point: response.body.sandbox_init_point,
+            message: 'Pagamento gerado com sucesso!'
+        });
+
+    } catch (error) {
+        console.error('❌ ERRO no pagamento:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: 'Erro ao gerar pagamento: ' + error.message 
+        });
+    }
+});
+
+// Webhook do Mercado Pago
+app.post('/api/pagamento/webhook', async (req, res) => {
+    try {
+        const { id, topic } = req.body;
+        console.log('📨 Webhook recebido:', { id, topic });
+
+        if (topic === 'payment') {
+            const payment = await mercadopago.payment.findById(id);
+            console.log('💳 Status do pagamento:', payment.body.status);
+            
+            if (payment.body && payment.body.status === 'approved') {
+                const preferenceId = payment.body.preference_id;
+                const externalReference = payment.body.external_reference;
+
+                await pool.query(
+                    `UPDATE pagamentos 
+                     SET status = 'aprovado', 
+                         mp_payment_id = $1,
+                         metodo = $2
+                     WHERE mp_preference_id = $3`,
+                    [id, payment.body.payment_type_id, preferenceId]
+                );
+
+                if (externalReference) {
+                    await pool.query(
+                        `UPDATE agendamentos 
+                         SET status = 'confirmado' 
+                         WHERE id = $1`,
+                        [parseInt(externalReference)]
+                    );
+                    console.log(`✅ Agendamento ${externalReference} confirmado!`);
+                }
+
+                console.log(`✅ Pagamento ${id} aprovado!`);
+            }
+        }
+
+        res.sendStatus(200);
+    } catch (error) {
+        console.error('❌ Erro no webhook:', error);
+        res.sendStatus(500);
+    }
+});
+
+// ========== ROTAS DE PÁGINAS ==========
+
+app.get('/', (req, res) => {
+    res.sendFile(__dirname + '/public/index.html');
+});
+
+app.get('/cliente', (req, res) => {
+    res.sendFile(__dirname + '/public/cliente.html');
+});
+
+app.get('/admin', (req, res) => {
+    res.sendFile(__dirname + '/public/admin.html');
+});
+
+app.get('/sucesso.html', (req, res) => {
+    res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="UTF-8"><title>Pagamento Aprovado</title></head>
+        <body style="background:#0b0a0a;color:white;display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;">
+            <div style="text-align:center;">
+                <h1 style="color:#27ae60;">✅ Pagamento Aprovado!</h1>
+                <p>Seu agendamento foi confirmado.</p>
+                <a href="/cliente" style="color:#f5b041;">Voltar para área do cliente</a>
+            </div>
+        </body>
+        </html>
+    `);
+});
+
+app.get('/falha.html', (req, res) => {
+    res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="UTF-8"><title>Pagamento Falhou</title></head>
+        <body style="background:#0b0a0a;color:white;display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;">
+            <div style="text-align:center;">
+                <h1 style="color:#e74c3c;">❌ Pagamento Falhou</h1>
+                <p>Tente novamente ou escolha outra forma de pagamento.</p>
+                <a href="/cliente" style="color:#f5b041;">Voltar para área do cliente</a>
+            </div>
+        </body>
+        </html>
+    `);
+});
+
+app.get('/pendente.html', (req, res) => {
+    res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="UTF-8"><title>Pagamento Pendente</title></head>
+        <body style="background:#0b0a0a;color:white;display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;">
+            <div style="text-align:center;">
+                <h1 style="color:#f39c12;">⏳ Pagamento Pendente</h1>
+                <p>Seu pagamento está sendo processado.</p>
+                <a href="/cliente" style="color:#f5b041;">Voltar para área do cliente</a>
+            </div>
+        </body>
+        </html>
+    `);
+});
+
+// ========== INICIAR SERVIDOR ==========
+app.listen(port, async () => {
+    console.log(`🚀 Servidor rodando na porta ${port}`);
+    console.log(`📱 Acesse: http://localhost:${port}`);
+    console.log(`👤 Área do cliente: http://localhost:${port}/cliente`);
+    console.log(`🔧 Painel Admin: http://localhost:${port}/admin`);
+    await initDatabase();
+    console.log('✅ Sistema pronto!');
+});
+
+process.on('unhandledRejection', (err) => {
+    console.error('❌ Erro não tratado:', err);
+});
+
+process.on('uncaughtException', (err) => {
+    console.error('❌ Exceção não capturada:', err);
+});

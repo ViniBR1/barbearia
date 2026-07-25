@@ -1,0 +1,1238 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Empório Barbe - Painel Admin</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+        :root {
+            --primary: #f5b041;
+            --primary-dark: #d48c2c;
+            --dark: #0b0a0a;
+            --card: #171515;
+            --border: #2d2a2a;
+            --text: #eae6e0;
+            --text-muted: #bdb8b0;
+            --success: #27ae60;
+            --danger: #e74c3c;
+            --warning: #f39c12;
+            --info: #3498db;
+        }
+        body {
+            background: var(--dark);
+            color: var(--text);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+
+        /* NAVBAR */
+        .navbar {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.8rem 1.5rem;
+            background: var(--card);
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            margin-bottom: 1.5rem;
+        }
+        .logo {
+            font-size: 1.6rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #f5b041, #d48c2c);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            cursor: pointer;
+        }
+        .nav-links {
+            display: flex;
+            gap: 0.8rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .nav-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            padding: 0.4rem 0.8rem;
+            border-radius: 8px;
+            transition: 0.3s;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--primary);
+            background: rgba(245, 176, 65, 0.1);
+        }
+
+        .btn {
+            background: var(--primary);
+            border: none;
+            color: var(--dark);
+            padding: 0.5rem 1.2rem;
+            border-radius: 40px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+        .btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(245, 176, 65, 0.3);
+        }
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--primary);
+            color: var(--primary);
+        }
+        .btn-outline:hover {
+            background: var(--primary);
+            color: var(--dark);
+        }
+        .btn-sm {
+            padding: 0.3rem 0.8rem;
+            font-size: 0.8rem;
+        }
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+        .btn-warning {
+            background: var(--warning);
+            color: white;
+        }
+        .btn-info {
+            background: var(--info);
+            color: white;
+        }
+        .btn-block {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .card {
+            background: var(--card);
+            border-radius: 16px;
+            padding: 1.2rem;
+            border: 1px solid var(--border);
+            transition: 0.3s;
+            margin-bottom: 1rem;
+        }
+        .card:hover {
+            border-color: var(--primary);
+        }
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+        .card-header h3 {
+            color: var(--primary);
+            font-size: 1.1rem;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+        }
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1rem;
+        }
+        .grid-4 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 0.8rem;
+        }
+
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 0.8rem;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 0.2rem;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.5rem 0.8rem;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: var(--dark);
+            color: var(--text);
+            transition: 0.3s;
+            font-size: 0.9rem;
+        }
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(245, 176, 65, 0.2);
+        }
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.8rem;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.15rem 0.6rem;
+            border-radius: 40px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+        .badge-primary {
+            background: var(--primary);
+            color: var(--dark);
+        }
+        .badge-success {
+            background: var(--success);
+            color: white;
+        }
+        .badge-danger {
+            background: var(--danger);
+            color: white;
+        }
+        .badge-warning {
+            background: var(--warning);
+            color: white;
+        }
+        .badge-info {
+            background: var(--info);
+            color: white;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 0.15rem 0.6rem;
+            border-radius: 40px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+        .status.confirmed {
+            background: #1a5f2d;
+            color: #7ddf9e;
+        }
+        .status.waiting {
+            background: #5f4a1a;
+            color: #f5d98f;
+        }
+        .status.done {
+            background: #1a3a5f;
+            color: #8ab8f5;
+        }
+        .status.canceled {
+            background: #5f1a1a;
+            color: #f58a8a;
+        }
+
+        .table-wrap {
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+        th {
+            text-align: left;
+            padding: 0.5rem 0.3rem;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border);
+            font-weight: 500;
+        }
+        td {
+            padding: 0.5rem 0.3rem;
+            border-bottom: 1px solid #1a1a1a;
+            vertical-align: middle;
+        }
+        tr:hover td {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal.active {
+            display: flex;
+        }
+        .modal-content {
+            background: var(--card);
+            padding: 1.5rem;
+            border-radius: 20px;
+            max-width: 550px;
+            width: 92%;
+            border: 1px solid var(--border);
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .modal-content h2 {
+            color: var(--primary);
+            margin-bottom: 1rem;
+            font-size: 1.3rem;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: var(--card);
+            padding: 0.8rem 1.5rem;
+            border-radius: 12px;
+            border: 1px solid var(--primary);
+            z-index: 2000;
+            display: none;
+            max-width: 400px;
+            font-size: 0.9rem;
+        }
+        .toast.show {
+            display: block;
+            animation: slideIn 0.5s ease;
+        }
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 0.8rem;
+        }
+        .stat-item {
+            background: var(--dark);
+            padding: 0.8rem;
+            border-radius: 12px;
+            text-align: center;
+            border: 1px solid var(--border);
+        }
+        .stat-item .numero {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+        .stat-item .label {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+        }
+
+        @media (max-width: 768px) {
+            .navbar {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+            .nav-links {
+                justify-content: center;
+            }
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+            .grid-2,
+            .grid-3,
+            .grid-4 {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- NAVBAR -->
+        <header class="navbar">
+            <div class="logo"><i class="fas fa-scissors"></i> Empório Barbe</div>
+            <div class="nav-links">
+                <a class="active" onclick="mudarTab('dashboard')"><i class="fas fa-home"></i> Dashboard</a>
+                <a onclick="mudarTab('catalogo')"><i class="fas fa-cut"></i> Catálogo</a>
+                <a onclick="mudarTab('planos')"><i class="fas fa-crown"></i> Planos</a>
+                <a onclick="mudarTab('agendamentos')"><i class="fas fa-calendar-alt"></i> Agendamentos</a>
+                <a onclick="mudarTab('estoque')"><i class="fas fa-boxes"></i> Estoque</a>
+                <a onclick="mudarTab('barbearias')"><i class="fas fa-store"></i> Multi</a>
+                <span style="color: var(--primary); font-size: 0.85rem;">
+                    <i class="fas fa-user-cog"></i> <span id="adminNome">Admin</span>
+                </span>
+                <button class="btn btn-sm btn-outline" onclick="logoutAdmin()"><i class="fas fa-sign-out-alt"></i></button>
+            </div>
+        </header>
+
+        <!-- ===== DASHBOARD ===== -->
+        <div id="tab-dashboard" class="tab-content active">
+            <div class="stats-grid" id="statsDashboard">
+                <div class="stat-item"><div class="numero" id="totalAgendamentos">0</div><div class="label">Total Agendamentos</div></div>
+                <div class="stat-item"><div class="numero" id="agendamentosHoje">0</div><div class="label">Hoje</div></div>
+                <div class="stat-item"><div class="numero" id="filaTotal">0</div><div class="label">Na Fila</div></div>
+                <div class="stat-item"><div class="numero" id="totalClientes">0</div><div class="label">Clientes</div></div>
+                <div class="stat-item"><div class="numero" id="faturamentoMes">R$ 0</div><div class="label">Mês</div></div>
+                <div class="stat-item"><div class="numero" id="servicosAtivos">0</div><div class="label">Serviços</div></div>
+            </div>
+
+            <div class="grid-2">
+                <div class="card">
+                    <h3><i class="fas fa-clock"></i> Próximos Agendamentos</h3>
+                    <div id="proximosAgendamentos" style="max-height:300px; overflow-y:auto;"></div>
+                </div>
+                <div class="card">
+                    <h3><i class="fas fa-tag"></i> Serviços Mais Pedidos</h3>
+                    <div id="servicosMaisPedidos" style="max-height:300px; overflow-y:auto;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== CATÁLOGO ===== -->
+        <div id="tab-catalogo" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-cut"></i> Gerenciar Serviços</h3>
+                    <button class="btn btn-sm" onclick="abrirModalServico()"><i class="fas fa-plus"></i> Novo Serviço</button>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr><th>Nome</th><th>Descrição</th><th>Preço</th><th>Duração</th><th>Status</th><th>Ações</th></tr>
+                        </thead>
+                        <tbody id="tabelaServicos"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== PLANOS ===== -->
+        <div id="tab-planos" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-crown"></i> Gerenciar Planos</h3>
+                    <button class="btn btn-sm" onclick="abrirModalPlano()"><i class="fas fa-plus"></i> Novo Plano</button>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr><th>Nome</th><th>Descrição</th><th>Preço</th><th>Cortes/Mês</th><th>Prioridade</th><th>Status</th><th>Ações</th></tr>
+                        </thead>
+                        <tbody id="tabelaPlanos"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== AGENDAMENTOS ===== -->
+        <div id="tab-agendamentos" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-calendar-alt"></i> Todos os Agendamentos</h3>
+                    <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+                        <select id="filtroStatus" onchange="carregarAgendamentos()" style="padding:0.3rem 0.8rem; border-radius:8px; background:var(--dark); color:var(--text); border:1px solid var(--border);">
+                            <option value="todos">Todos</option>
+                            <option value="aguardando">Aguardando</option>
+                            <option value="confirmado">Confirmado</option>
+                            <option value="done">Finalizado</option>
+                            <option value="canceled">Cancelado</option>
+                        </select>
+                        <input type="date" id="filtroData" onchange="carregarAgendamentos()" style="padding:0.3rem 0.8rem; border-radius:8px; background:var(--dark); color:var(--text); border:1px solid var(--border);">
+                    </div>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr><th>Cliente</th><th>Serviço</th><th>Data/Hora</th><th>Valor</th><th>Status</th><th>Pagamento</th><th>Ações</th></tr>
+                        </thead>
+                        <tbody id="tabelaAgendamentos"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== ESTOQUE ===== -->
+        <div id="tab-estoque" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-boxes"></i> Gerenciar Estoque</h3>
+                    <button class="btn btn-sm" onclick="abrirModalEstoque()"><i class="fas fa-plus"></i> Adicionar Item</button>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr><th>Item</th><th>Quantidade</th><th>Ações</th></tr>
+                        </thead>
+                        <tbody id="tabelaEstoque"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== MULTI BARBEARIAS ===== -->
+        <div id="tab-barbearias" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-store"></i> Multi Barbearias</h3>
+                    <button class="btn btn-sm" onclick="abrirModalBarbearia()"><i class="fas fa-plus"></i> Nova Barbearia</button>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr><th>ID</th><th>Nome</th><th>Slug</th><th>Criado em</th><th>Ações</th></tr>
+                        </thead>
+                        <tbody id="tabelaBarbearias"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== MODAIS ===== -->
+
+        <!-- Modal Serviço -->
+        <div class="modal" id="modalServico">
+            <div class="modal-content">
+                <h2 id="modalServicoTitulo"><i class="fas fa-cut"></i> Novo Serviço</h2>
+                <input type="hidden" id="servicoId">
+                <div class="form-group">
+                    <label>Nome do Serviço</label>
+                    <input type="text" id="servicoNome" placeholder="Ex: Corte Degradê">
+                </div>
+                <div class="form-group">
+                    <label>Descrição</label>
+                    <input type="text" id="servicoDescricao" placeholder="Breve descrição">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Preço (R$)</label>
+                        <input type="number" id="servicoPreco" step="0.01" placeholder="45.00">
+                    </div>
+                    <div class="form-group">
+                        <label>Duração (minutos)</label>
+                        <input type="number" id="servicoDuracao" placeholder="30">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Status</label>
+                    <select id="servicoStatus">
+                        <option value="true">Ativo</option>
+                        <option value="false">Inativo</option>
+                    </select>
+                </div>
+                <button class="btn btn-block" onclick="salvarServico()"><i class="fas fa-save"></i> Salvar</button>
+                <button class="btn btn-block btn-outline" onclick="fecharModal('modalServico')">Cancelar</button>
+            </div>
+        </div>
+
+        <!-- Modal Plano -->
+        <div class="modal" id="modalPlano">
+            <div class="modal-content">
+                <h2 id="modalPlanoTitulo"><i class="fas fa-crown"></i> Novo Plano</h2>
+                <input type="hidden" id="planoId">
+                <div class="form-group">
+                    <label>Nome do Plano</label>
+                    <input type="text" id="planoNome" placeholder="Ex: Mensal Premium">
+                </div>
+                <div class="form-group">
+                    <label>Descrição</label>
+                    <input type="text" id="planoDescricao" placeholder="Benefícios do plano">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Preço (R$)</label>
+                        <input type="number" id="planoPreco" step="0.01" placeholder="89.90">
+                    </div>
+                    <div class="form-group">
+                        <label>Cortes por Mês</label>
+                        <input type="number" id="planoCortes" placeholder="4 (0 = ilimitado)">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Prioridade no Atendimento</label>
+                    <select id="planoPrioridade">
+                        <option value="true">Sim</option>
+                        <option value="false">Não</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Status</label>
+                    <select id="planoStatus">
+                        <option value="true">Ativo</option>
+                        <option value="false">Inativo</option>
+                    </select>
+                </div>
+                <button class="btn btn-block" onclick="salvarPlano()"><i class="fas fa-save"></i> Salvar</button>
+                <button class="btn btn-block btn-outline" onclick="fecharModal('modalPlano')">Cancelar</button>
+            </div>
+        </div>
+
+        <!-- Modal Estoque -->
+        <div class="modal" id="modalEstoque">
+            <div class="modal-content">
+                <h2><i class="fas fa-boxes"></i> Adicionar Item</h2>
+                <input type="hidden" id="estoqueId">
+                <div class="form-group">
+                    <label>Nome do Item</label>
+                    <input type="text" id="estoqueItem" placeholder="Ex: Máquina de Corte">
+                </div>
+                <div class="form-group">
+                    <label>Quantidade</label>
+                    <input type="number" id="estoqueQuantidade" placeholder="10">
+                </div>
+                <button class="btn btn-block" onclick="salvarEstoque()"><i class="fas fa-save"></i> Salvar</button>
+                <button class="btn btn-block btn-outline" onclick="fecharModal('modalEstoque')">Cancelar</button>
+            </div>
+        </div>
+
+        <!-- Modal Barbearia -->
+        <div class="modal" id="modalBarbearia">
+            <div class="modal-content">
+                <h2><i class="fas fa-store"></i> Nova Barbearia</h2>
+                <div class="form-group">
+                    <label>Nome da Barbearia</label>
+                    <input type="text" id="barbeariaNome" placeholder="Ex: Empório Barbe Norte">
+                </div>
+                <div class="form-group">
+                    <label>Slug (URL)</label>
+                    <input type="text" id="barbeariaSlug" placeholder="Ex: norte">
+                </div>
+                <button class="btn btn-block" onclick="salvarBarbearia()"><i class="fas fa-save"></i> Criar</button>
+                <button class="btn btn-block btn-outline" onclick="fecharModal('modalBarbearia')">Cancelar</button>
+            </div>
+        </div>
+
+        <!-- TOAST -->
+        <div class="toast" id="toast">
+            <i class="fas fa-check-circle" style="color: var(--success);"></i>
+            <span id="toastMensagem">Sucesso!</span>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = '';
+        let barbeariaId = 1;
+        let adminLogado = JSON.parse(localStorage.getItem('adminEmporio')) || { nome: 'Admin' };
+
+        // ========== INICIALIZAÇÃO ==========
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('adminNome').textContent = adminLogado.nome || 'Admin';
+            carregarDashboard();
+            carregarServicos();
+            carregarPlanos();
+            carregarAgendamentos();
+            carregarEstoque();
+            carregarBarbearias();
+        });
+
+        // ========== TABS ==========
+        function mudarTab(tab) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.getElementById(`tab-${tab}`).classList.add('active');
+            document.querySelectorAll('.nav-links a').forEach(el => el.classList.remove('active'));
+            const links = document.querySelectorAll('.nav-links a');
+            const tabMap = { 'dashboard': 0, 'catalogo': 1, 'planos': 2, 'agendamentos': 3, 'estoque': 4, 'barbearias': 5 };
+            if (links[tabMap[tab]]) links[tabMap[tab]].classList.add('active');
+            
+            if (tab === 'dashboard') carregarDashboard();
+            if (tab === 'catalogo') carregarServicos();
+            if (tab === 'planos') carregarPlanos();
+            if (tab === 'agendamentos') carregarAgendamentos();
+            if (tab === 'estoque') carregarEstoque();
+            if (tab === 'barbearias') carregarBarbearias();
+        }
+
+        // ========== DASHBOARD ==========
+        async function carregarDashboard() {
+            try {
+                const [agendamentosRes, filaRes, clientesRes] = await Promise.all([
+                    fetch(`/api/agendamentos/${barbeariaId}`),
+                    fetch(`/api/fila/${barbeariaId}`),
+                    fetch('/api/clientes')
+                ]);
+
+                const agendamentos = await agendamentosRes.json();
+                const fila = await filaRes.json();
+                const clientes = await clientesRes.json();
+
+                const hoje = new Date().toISOString().split('T')[0];
+                const agendamentosHoje = agendamentos.filter(a => a.data_hora && a.data_hora.startsWith(hoje));
+                const finalizados = agendamentos.filter(a => a.status === 'done');
+                const faturamento = finalizados.reduce((sum, a) => sum + (parseFloat(a.valor_pago) || 0), 0);
+
+                document.getElementById('totalAgendamentos').textContent = agendamentos.length;
+                document.getElementById('agendamentosHoje').textContent = agendamentosHoje.length;
+                document.getElementById('filaTotal').textContent = fila.fila || 0;
+                document.getElementById('totalClientes').textContent = clientes.length || 0;
+                document.getElementById('faturamentoMes').textContent = `R$ ${faturamento.toFixed(2)}`;
+                document.getElementById('servicosAtivos').textContent = document.querySelectorAll('#tabelaServicos tr').length || 0;
+
+                // Próximos agendamentos
+                const proximos = agendamentos
+                    .filter(a => a.status === 'aguardando' || a.status === 'confirmado')
+                    .sort((a, b) => new Date(a.data_hora) - new Date(b.data_hora))
+                    .slice(0, 5);
+
+                const container = document.getElementById('proximosAgendamentos');
+                if (proximos.length === 0) {
+                    container.innerHTML = '<p style="color:var(--text-muted); text-align:center; padding:1rem;">Nenhum agendamento futuro</p>';
+                } else {
+                    container.innerHTML = proximos.map(a => `
+                        <div style="display:flex; justify-content:space-between; padding:0.4rem 0; border-bottom:1px solid var(--border);">
+                            <span><strong>${a.cliente_nome || a.cliente}</strong> - ${a.servico}</span>
+                            <span style="color:var(--text-muted);">${new Date(a.data_hora).toLocaleString('pt-BR')}</span>
+                            <span class="status ${a.status}">${a.status}</span>
+                        </div>
+                    `).join('');
+                }
+
+                // Serviços mais pedidos
+                const servicosCount = {};
+                agendamentos.forEach(a => {
+                    servicosCount[a.servico] = (servicosCount[a.servico] || 0) + 1;
+                });
+                const topServicos = Object.entries(servicosCount)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 5);
+
+                const container2 = document.getElementById('servicosMaisPedidos');
+                if (topServicos.length === 0) {
+                    container2.innerHTML = '<p style="color:var(--text-muted); text-align:center; padding:1rem;">Nenhum serviço ainda</p>';
+                } else {
+                    container2.innerHTML = topServicos.map(([nome, qtd]) => `
+                        <div style="display:flex; justify-content:space-between; padding:0.4rem 0; border-bottom:1px solid var(--border);">
+                            <span>${nome}</span>
+                            <span class="badge badge-primary">${qtd} pedidos</span>
+                        </div>
+                    `).join('');
+                }
+            } catch (error) {
+                console.error('Erro ao carregar dashboard:', error);
+            }
+        }
+
+        // ========== SERVIÇOS ==========
+        async function carregarServicos() {
+            try {
+                const response = await fetch(`/api/servicos/${barbeariaId}`);
+                if (response.ok) {
+                    const servicos = await response.json();
+                    const tbody = document.getElementById('tabelaServicos');
+                    if (servicos.length === 0) {
+                        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:2rem;">Nenhum serviço cadastrado</td></tr>`;
+                    } else {
+                        tbody.innerHTML = servicos.map(s => `
+                            <tr>
+                                <td><strong>${s.nome}</strong></td>
+                                <td>${s.descricao || '-'}</td>
+                                <td>R$ ${s.preco.toFixed(2)}</td>
+                                <td>${s.duracao} min</td>
+                                <td><span class="badge ${s.ativo ? 'badge-success' : 'badge-danger'}">${s.ativo ? 'Ativo' : 'Inativo'}</span></td>
+                                <td>
+                                    <button class="btn btn-sm btn-info" onclick="editarServico(${s.id})"><i class="fas fa-edit"></i></button>
+                                    <button class="btn btn-sm btn-danger" onclick="deletarServico(${s.id})"><i class="fas fa-trash"></i></button>
+                                </td>
+                            </tr>
+                        `).join('');
+                    }
+                }
+            } catch (error) {
+                console.error('Erro ao carregar serviços:', error);
+            }
+        }
+
+        function abrirModalServico() {
+            document.getElementById('modalServicoTitulo').textContent = 'Novo Serviço';
+            document.getElementById('servicoId').value = '';
+            document.getElementById('servicoNome').value = '';
+            document.getElementById('servicoDescricao').value = '';
+            document.getElementById('servicoPreco').value = '';
+            document.getElementById('servicoDuracao').value = '30';
+            document.getElementById('servicoStatus').value = 'true';
+            document.getElementById('modalServico').classList.add('active');
+        }
+
+        async function editarServico(id) {
+            try {
+                const response = await fetch(`/api/servicos/${barbeariaId}`);
+                const servicos = await response.json();
+                const servico = servicos.find(s => s.id === id);
+                if (servico) {
+                    document.getElementById('modalServicoTitulo').textContent = 'Editar Serviço';
+                    document.getElementById('servicoId').value = servico.id;
+                    document.getElementById('servicoNome').value = servico.nome;
+                    document.getElementById('servicoDescricao').value = servico.descricao || '';
+                    document.getElementById('servicoPreco').value = servico.preco;
+                    document.getElementById('servicoDuracao').value = servico.duracao || 30;
+                    document.getElementById('servicoStatus').value = servico.ativo ? 'true' : 'false';
+                    document.getElementById('modalServico').classList.add('active');
+                }
+            } catch (error) {
+                mostrarToast('Erro ao carregar serviço', 'error');
+            }
+        }
+
+        async function salvarServico() {
+            const id = document.getElementById('servicoId').value;
+            const nome = document.getElementById('servicoNome').value;
+            const descricao = document.getElementById('servicoDescricao').value;
+            const preco = parseFloat(document.getElementById('servicoPreco').value);
+            const duracao = parseInt(document.getElementById('servicoDuracao').value) || 30;
+            const ativo = document.getElementById('servicoStatus').value === 'true';
+
+            if (!nome || !preco) {
+                mostrarToast('Preencha nome e preço!', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/servicos', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ barbeariaId, nome, descricao, preco, duracao })
+                });
+
+                if (response.ok) {
+                    mostrarToast(id ? 'Serviço atualizado!' : 'Serviço criado!');
+                    fecharModal('modalServico');
+                    carregarServicos();
+                    carregarDashboard();
+                } else {
+                    const error = await response.json();
+                    mostrarToast('Erro: ' + error.error, 'error');
+                }
+            } catch (error) {
+                mostrarToast('Erro ao salvar: ' + error.message, 'error');
+            }
+        }
+
+        async function deletarServico(id) {
+            if (!confirm('Remover este serviço?')) return;
+            try {
+                // Implementar DELETE no backend ou apenas desativar
+                mostrarToast('Funcionalidade: desativar serviço');
+            } catch (error) {
+                mostrarToast('Erro ao deletar', 'error');
+            }
+        }
+
+        // ========== PLANOS ==========
+        async function carregarPlanos() {
+            try {
+                const response = await fetch(`/api/planos/${barbeariaId}`);
+                if (response.ok) {
+                    const planos = await response.json();
+                    const tbody = document.getElementById('tabelaPlanos');
+                    if (planos.length === 0) {
+                        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:2rem;">Nenhum plano cadastrado</td></tr>`;
+                    } else {
+                        tbody.innerHTML = planos.map(p => `
+                            <tr>
+                                <td><strong>${p.nome}</strong></td>
+                                <td>${p.descricao || '-'}</td>
+                                <td>R$ ${p.preco.toFixed(2)}</td>
+                                <td>${p.cortes_por_mes === 0 ? 'Ilimitado' : p.cortes_por_mes}</td>
+                                <td><span class="badge ${p.prioridade ? 'badge-warning' : 'badge-muted'}">${p.prioridade ? 'Sim' : 'Não'}</span></td>
+                                <td><span class="badge ${p.ativo ? 'badge-success' : 'badge-danger'}">${p.ativo ? 'Ativo' : 'Inativo'}</span></td>
+                                <td>
+                                    <button class="btn btn-sm btn-info" onclick="editarPlano(${p.id})"><i class="fas fa-edit"></i></button>
+                                    <button class="btn btn-sm btn-danger" onclick="deletarPlano(${p.id})"><i class="fas fa-trash"></i></button>
+                                </td>
+                            </tr>
+                        `).join('');
+                    }
+                }
+            } catch (error) {
+                console.error('Erro ao carregar planos:', error);
+            }
+        }
+
+        function abrirModalPlano() {
+            document.getElementById('modalPlanoTitulo').textContent = 'Novo Plano';
+            document.getElementById('planoId').value = '';
+            document.getElementById('planoNome').value = '';
+            document.getElementById('planoDescricao').value = '';
+            document.getElementById('planoPreco').value = '';
+            document.getElementById('planoCortes').value = '4';
+            document.getElementById('planoPrioridade').value = 'false';
+            document.getElementById('planoStatus').value = 'true';
+            document.getElementById('modalPlano').classList.add('active');
+        }
+
+        async function editarPlano(id) {
+            try {
+                const response = await fetch(`/api/planos/${barbeariaId}`);
+                const planos = await response.json();
+                const plano = planos.find(p => p.id === id);
+                if (plano) {
+                    document.getElementById('modalPlanoTitulo').textContent = 'Editar Plano';
+                    document.getElementById('planoId').value = plano.id;
+                    document.getElementById('planoNome').value = plano.nome;
+                    document.getElementById('planoDescricao').value = plano.descricao || '';
+                    document.getElementById('planoPreco').value = plano.preco;
+                    document.getElementById('planoCortes').value = plano.cortes_por_mes;
+                    document.getElementById('planoPrioridade').value = plano.prioridade ? 'true' : 'false';
+                    document.getElementById('planoStatus').value = plano.ativo ? 'true' : 'false';
+                    document.getElementById('modalPlano').classList.add('active');
+                }
+            } catch (error) {
+                mostrarToast('Erro ao carregar plano', 'error');
+            }
+        }
+
+        async function salvarPlano() {
+            const id = document.getElementById('planoId').value;
+            const nome = document.getElementById('planoNome').value;
+            const descricao = document.getElementById('planoDescricao').value;
+            const preco = parseFloat(document.getElementById('planoPreco').value);
+            const cortes_por_mes = parseInt(document.getElementById('planoCortes').value) || 0;
+            const prioridade = document.getElementById('planoPrioridade').value === 'true';
+
+            if (!nome || !preco) {
+                mostrarToast('Preencha nome e preço!', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/planos', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ barbeariaId, nome, descricao, preco, cortes_por_mes, prioridade })
+                });
+
+                if (response.ok) {
+                    mostrarToast(id ? 'Plano atualizado!' : 'Plano criado!');
+                    fecharModal('modalPlano');
+                    carregarPlanos();
+                    carregarDashboard();
+                } else {
+                    const error = await response.json();
+                    mostrarToast('Erro: ' + error.error, 'error');
+                }
+            } catch (error) {
+                mostrarToast('Erro ao salvar: ' + error.message, 'error');
+            }
+        }
+
+        async function deletarPlano(id) {
+            if (!confirm('Remover este plano?')) return;
+            mostrarToast('Funcionalidade: desativar plano');
+        }
+
+        // ========== AGENDAMENTOS ==========
+        async function carregarAgendamentos() {
+            try {
+                const status = document.getElementById('filtroStatus').value;
+                const data = document.getElementById('filtroData').value;
+
+                const response = await fetch(`/api/agendamentos/${barbeariaId}`);
+                if (response.ok) {
+                    let agendamentos = await response.json();
+                    
+                    if (status !== 'todos') {
+                        agendamentos = agendamentos.filter(a => a.status === status);
+                    }
+                    if (data) {
+                        agendamentos = agendamentos.filter(a => a.data_hora && a.data_hora.startsWith(data));
+                    }
+
+                    const tbody = document.getElementById('tabelaAgendamentos');
+                    if (agendamentos.length === 0) {
+                        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:2rem;">Nenhum agendamento encontrado</td></tr>`;
+                    } else {
+                        tbody.innerHTML = agendamentos.map(a => `
+                            <tr>
+                                <td><strong>${a.cliente_nome || a.cliente}</strong></td>
+                                <td>${a.servico}</td>
+                                <td>${new Date(a.data_hora).toLocaleString('pt-BR')}</td>
+                                <td>${a.valor_pago ? `R$ ${a.valor_pago.toFixed(2)}` : '-'}</td>
+                                <td><span class="status ${a.status}">${a.status}</span></td>
+                                <td>${a.pagamento_id ? '<span class="badge badge-success">Pago</span>' : '<span class="badge badge-warning">Pendente</span>'}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-success" onclick="atualizarStatusAgendamento(${a.id}, 'confirmado')"><i class="fas fa-check"></i></button>
+                                    <button class="btn btn-sm btn-warning" onclick="atualizarStatusAgendamento(${a.id}, 'done')"><i class="fas fa-check-double"></i></button>
+                                    <button class="btn btn-sm btn-danger" onclick="atualizarStatusAgendamento(${a.id}, 'canceled')"><i class="fas fa-times"></i></button>
+                                    <button class="btn btn-sm btn-outline" onclick="cancelarAgendamentoAdmin(${a.id})"><i class="fas fa-trash"></i></button>
+                                </td>
+                            </tr>
+                        `).join('');
+                    }
+                }
+            } catch (error) {
+                console.error('Erro ao carregar agendamentos:', error);
+            }
+        }
+
+        async function atualizarStatusAgendamento(id, status) {
+            try {
+                const response = await fetch(`/api/agendamentos/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status })
+                });
+                if (response.ok) {
+                    mostrarToast(`Status atualizado para ${status}`);
+                    carregarAgendamentos();
+                    carregarDashboard();
+                }
+            } catch (error) {
+                mostrarToast('Erro ao atualizar status', 'error');
+            }
+        }
+
+        async function cancelarAgendamentoAdmin(id) {
+            if (!confirm('Cancelar este agendamento?')) return;
+            try {
+                const response = await fetch(`/api/agendamentos/${id}`, { method: 'DELETE' });
+                if (response.ok) {
+                    mostrarToast('Agendamento removido');
+                    carregarAgendamentos();
+                    carregarDashboard();
+                }
+            } catch (error) {
+                mostrarToast('Erro ao remover', 'error');
+            }
+        }
+
+        // ========== ESTOQUE ==========
+        async function carregarEstoque() {
+            try {
+                const response = await fetch(`/api/estoque/${barbeariaId}`);
+                if (response.ok) {
+                    const estoque = await response.json();
+                    const tbody = document.getElementById('tabelaEstoque');
+                    if (estoque.length === 0) {
+                        tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;color:var(--text-muted);padding:2rem;">Nenhum item no estoque</td></tr>`;
+                    } else {
+                        tbody.innerHTML = estoque.map(e => `
+                            <tr>
+                                <td><strong>${e.item}</strong></td>
+                                <td>${e.quantidade}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-info" onclick="editarEstoque(${e.id})"><i class="fas fa-edit"></i></button>
+                                    <button class="btn btn-sm btn-danger" onclick="deletarEstoque(${e.id})"><i class="fas fa-trash"></i></button>
+                                </td>
+                            </tr>
+                        `).join('');
+                    }
+                }
+            } catch (error) {
+                console.error('Erro ao carregar estoque:', error);
+            }
+        }
+
+        function abrirModalEstoque() {
+            document.getElementById('estoqueId').value = '';
+            document.getElementById('estoqueItem').value = '';
+            document.getElementById('estoqueQuantidade').value = '';
+            document.getElementById('modalEstoque').classList.add('active');
+        }
+
+        async function editarEstoque(id) {
+            try {
+                const response = await fetch(`/api/estoque/${barbeariaId}`);
+                const estoque = await response.json();
+                const item = estoque.find(e => e.id === id);
+                if (item) {
+                    document.getElementById('estoqueId').value = item.id;
+                    document.getElementById('estoqueItem').value = item.item;
+                    document.getElementById('estoqueQuantidade').value = item.quantidade;
+                    document.getElementById('modalEstoque').classList.add('active');
+                }
+            } catch (error) {
+                mostrarToast('Erro ao carregar item', 'error');
+            }
+        }
+
+        async function salvarEstoque() {
+            const id = document.getElementById('estoqueId').value;
+            const item = document.getElementById('estoqueItem').value;
+            const quantidade = parseInt(document.getElementById('estoqueQuantidade').value) || 0;
+
+            if (!item) {
+                mostrarToast('Digite o nome do item!', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/estoque', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ barbeariaId, item, quantidade })
+                });
+
+                if (response.ok) {
+                    mostrarToast(id ? 'Item atualizado!' : 'Item adicionado!');
+                    fecharModal('modalEstoque');
+                    carregarEstoque();
+                } else {
+                    const error = await response.json();
+                    mostrarToast('Erro: ' + error.error, 'error');
+                }
+            } catch (error) {
+                mostrarToast('Erro ao salvar: ' + error.message, 'error');
+            }
+        }
+
+        async function deletarEstoque(id) {
+            if (!confirm('Remover este item do estoque?')) return;
+            mostrarToast('Funcionalidade: remover item');
+        }
+
+        // ========== BARBEARIAS ==========
+        async function carregarBarbearias() {
+            try {
+                const response = await fetch('/api/barbearias');
+                if (response.ok) {
+                    const barbearias = await response.json();
+                    const tbody = document.getElementById('tabelaBarbearias');
+                    if (barbearias.length === 0) {
+                        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:2rem;">Nenhuma barbearia cadastrada</td></tr>`;
+                    } else {
+                        tbody.innerHTML = barbearias.map(b => `
+                            <tr>
+                                <td>${b.id}</td>
+                                <td><strong>${b.nome}</strong></td>
+                                <td><span class="badge badge-info">/${b.slug}</span></td>
+                                <td>${new Date(b.criado_em).toLocaleDateString('pt-BR')}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-success" onclick="selecionarBarbearia(${b.id})"><i class="fas fa-check"></i> Selecionar</button>
+                                </td>
+                            </tr>
+                        `).join('');
+                    }
+                }
+            } catch (error) {
+                console.error('Erro ao carregar barbearias:', error);
+            }
+        }
+
+        function abrirModalBarbearia() {
+            document.getElementById('barbeariaNome').value = '';
+            document.getElementById('barbeariaSlug').value = '';
+            document.getElementById('modalBarbearia').classList.add('active');
+        }
+
+        async function salvarBarbearia() {
+            const nome = document.getElementById('barbeariaNome').value;
+            const slug = document.getElementById('barbeariaSlug').value;
+
+            if (!nome || !slug) {
+                mostrarToast('Preencha nome e slug!', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/barbearias', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nome, slug })
+                });
+
+                if (response.ok) {
+                    mostrarToast('Barbearia criada!');
+                    fecharModal('modalBarbearia');
+                    carregarBarbearias();
+                } else {
+                    const error = await response.json();
+                    mostrarToast('Erro: ' + error.error, 'error');
+                }
+            } catch (error) {
+                mostrarToast('Erro ao criar: ' + error.message, 'error');
+            }
+        }
+
+        function selecionarBarbearia(id) {
+            barbeariaId = id;
+            mostrarToast(`Barbearia selecionada: ID ${id}`);
+            carregarDashboard();
+            carregarServicos();
+            carregarPlanos();
+            carregarAgendamentos();
+            carregarEstoque();
+        }
+
+        // ========== UTILITÁRIOS ==========
+        function mudarTab(tab) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.getElementById(`tab-${tab}`).classList.add('active');
+            document.querySelectorAll('.nav-links a').forEach(el => el.classList.remove('active'));
+            const links = document.querySelectorAll('.nav-links a');
+            const tabMap = { 'dashboard': 0, 'catalogo': 1, 'planos': 2, 'agendamentos': 3, 'estoque': 4, 'barbearias': 5 };
+            if (links[tabMap[tab]]) links[tabMap[tab]].classList.add('active');
+            
+            if (tab === 'dashboard') carregarDashboard();
+            if (tab === 'catalogo') carregarServicos();
+            if (tab === 'planos') carregarPlanos();
+            if (tab === 'agendamentos') carregarAgendamentos();
+            if (tab === 'estoque') carregarEstoque();
+            if (tab === 'barbearias') carregarBarbearias();
+        }
+
+        function fecharModal(id) {
+            document.getElementById(id).classList.remove('active');
+        }
+
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.addEventListener('click', function(e) {
+                if (e.target === this) this.classList.remove('active');
+            });
+        });
+
+        function mostrarToast(msg, tipo = 'success') {
+            const toast = document.getElementById('toast');
+            const span = document.getElementById('toastMensagem');
+            span.textContent = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        function logoutAdmin() {
+            localStorage.removeItem('adminEmporio');
+            window.location.href = '/';
+        }
+
+        console.log('🔧 Painel Admin Empório Barbe carregado!');
+        console.log('🏢 Barbearia ID:', barbeariaId);
+    </script>
+</body>
+</html>
