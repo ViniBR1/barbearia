@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Empório Barbe - Barbearia Premium</title>
+    <title>BarbeOnline - Barbearia Premium</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
         * {
@@ -21,6 +21,9 @@
             --text: #eae6e0;
             --text-muted: #bdb8b0;
             --success: #27ae60;
+            --danger: #e74c3c;
+            --warning: #f39c12;
+            --info: #3498db;
         }
         body {
             background: var(--dark);
@@ -96,8 +99,16 @@
             background: var(--primary);
             color: var(--dark);
         }
-        .btn-warning {
-            background: var(--warning);
+        .btn-sm {
+            padding: 0.3rem 0.8rem;
+            font-size: 0.8rem;
+        }
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+        .btn-danger {
+            background: var(--danger);
             color: white;
         }
 
@@ -179,12 +190,8 @@
             background: var(--primary);
             color: var(--dark);
         }
-        .carousel-btn.prev {
-            left: 1.5rem;
-        }
-        .carousel-btn.next {
-            right: 1.5rem;
-        }
+        .carousel-btn.prev { left: 1.5rem; }
+        .carousel-btn.next { right: 1.5rem; }
 
         .carousel-dots {
             position: absolute;
@@ -309,13 +316,83 @@
             margin-bottom: 0.5rem;
         }
 
-        .badge-primary {
-            background: var(--primary);
-            color: var(--dark);
-            padding: 0.2rem 0.8rem;
-            border-radius: 40px;
-            font-size: 0.7rem;
-            font-weight: 600;
+        /* FILA EM TEMPO REAL - HOME */
+        .fila-home {
+            background: linear-gradient(135deg, #1f1a0f, var(--dark));
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+            padding: 2rem 5%;
+        }
+        .fila-home .fila-container {
+            display: flex;
+            gap: 2rem;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .fila-home .fila-item {
+            text-align: center;
+            padding: 1rem 2rem;
+            background: var(--card);
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            min-width: 150px;
+            flex: 1;
+        }
+        .fila-home .fila-item .numero {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+        .fila-home .fila-item .contador {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--success);
+        }
+        .fila-home .fila-item .label {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+        .fila-home .fila-item.destaque {
+            border-color: var(--primary);
+        }
+
+        /* PRÓXIMOS CLIENTES */
+        .proximos-clientes {
+            max-width: 800px;
+            margin: 1rem auto 0;
+        }
+        .cliente-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.6rem 1rem;
+            background: var(--dark);
+            border-radius: 12px;
+            margin-bottom: 0.5rem;
+            border-left: 3px solid var(--border);
+        }
+        .cliente-item.prioridade {
+            border-left-color: var(--primary);
+            background: #1f1a0f;
+        }
+        .cliente-item .posicao {
+            font-weight: 700;
+            color: var(--primary);
+            margin-right: 0.8rem;
+        }
+        .cliente-item .nome {
+            flex: 1;
+        }
+        .cliente-item .servico {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+        .cliente-item .tempo {
+            color: var(--warning);
+            font-size: 0.85rem;
         }
 
         /* DIFERENCIAIS */
@@ -395,33 +472,58 @@
                 padding: 0.8rem 1rem;
                 font-size: 1rem;
             }
-            .grid-3,
-            .grid-4 {
+            .grid-3, .grid-4 {
                 grid-template-columns: 1fr;
             }
             .section-title {
                 font-size: 1.6rem;
             }
+            .fila-home .fila-container {
+                gap: 0.5rem;
+            }
+            .fila-home .fila-item {
+                min-width: 100px;
+                padding: 0.8rem 1rem;
+            }
+            .fila-home .fila-item .numero {
+                font-size: 1.8rem;
+            }
+            .cliente-item {
+                flex-wrap: wrap;
+                gap: 0.3rem;
+            }
         }
 
-        /* ANIMAÇÃO DE ENTRADA */
-        .fade-in {
-            opacity: 0;
-            transform: translateY(30px);
-            animation: fadeInUp 0.8s ease forwards;
+        /* TOAST */
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: var(--card);
+            padding: 0.8rem 1.5rem;
+            border-radius: 12px;
+            border: 1px solid var(--primary);
+            z-index: 2000;
+            display: none;
+            max-width: 400px;
+            font-size: 0.9rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
         }
-        @keyframes fadeInUp {
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+        .toast.show {
+            display: block;
+            animation: slideIn 0.5s ease;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
         }
     </style>
 </head>
 <body>
+
     <!-- NAVBAR -->
     <nav class="navbar">
-        <div class="logo"><i class="fas fa-scissors"></i> Empório Barbe</div>
+        <div class="logo"><i class="fas fa-scissors"></i> BarbeOnline</div>
         <div class="nav-links">
             <a href="#planos">Planos</a>
             <a href="#servicos">Serviços</a>
@@ -440,6 +542,37 @@
             <button class="carousel-btn prev" onclick="mudarSlide(-1)"><i class="fas fa-chevron-left"></i></button>
             <button class="carousel-btn next" onclick="mudarSlide(1)"><i class="fas fa-chevron-right"></i></button>
             <div class="carousel-dots" id="carouselDots"></div>
+        </div>
+    </section>
+
+    <!-- FILA EM TEMPO REAL - HOME -->
+    <section class="fila-home" id="filaHome">
+        <div class="fila-container" id="filaContainer">
+            <div class="fila-item destaque">
+                <div class="label">👥 Na Fila</div>
+                <div class="numero" id="filaTotalHome">0</div>
+                <div class="label">pessoas esperando</div>
+            </div>
+            <div class="fila-item">
+                <div class="label">⏱ Tempo Médio</div>
+                <div class="contador" id="tempoMedioHome">0</div>
+                <div class="label">minutos</div>
+            </div>
+            <div class="fila-item">
+                <div class="label">✂️ Próximo</div>
+                <div class="contador" id="proximoClienteHome">-</div>
+                <div class="label">cliente</div>
+            </div>
+        </div>
+
+        <!-- Próximos 5 Clientes -->
+        <div class="proximos-clientes" id="proximosClientesHome">
+            <h4 style="color: var(--text-muted); text-align: center; margin-bottom: 0.5rem;">
+                <i class="fas fa-list"></i> Próximos 5 da Fila
+            </h4>
+            <div id="listaProximosHome">
+                <p style="color:var(--text-muted);text-align:center;padding:0.5rem;">Carregando...</p>
+            </div>
         </div>
     </section>
 
@@ -469,25 +602,25 @@
 
     <!-- DIFERENCIAIS -->
     <section class="section" id="diferenciais">
-        <h2 class="section-title">Por que <span class="highlight">escolher</span> a Empório Barbe?</h2>
+        <h2 class="section-title">Por que <span class="highlight">escolher</span> a BarbeOnline?</h2>
         <p class="section-subtitle">Experiência completa para o homem moderno</p>
         <div class="grid-4 diferenciais">
-            <div class="card fade-in">
+            <div class="card">
                 <div class="icon"><i class="fas fa-scissors"></i></div>
                 <h3>Cortes Premium</h3>
                 <p>Profissionais experientes com as melhores técnicas</p>
             </div>
-            <div class="card fade-in">
+            <div class="card">
                 <div class="icon"><i class="fas fa-credit-card"></i></div>
                 <h3>Pagamento Fácil</h3>
-                <p>Pix, cartão ou assinatura recorrente</p>
+                <p>Pix, cartão ou dinheiro</p>
             </div>
-            <div class="card fade-in">
+            <div class="card">
                 <div class="icon"><i class="fas fa-clock"></i></div>
                 <h3>Prioridade na Fila</h3>
                 <p>Assinantes têm atendimento preferencial</p>
             </div>
-            <div class="card fade-in">
+            <div class="card">
                 <div class="icon"><i class="fas fa-gift"></i></div>
                 <h3>Corte Grátis</h3>
                 <p>A cada 4 cortes, ganhe 1 de cortesia</p>
@@ -513,14 +646,21 @@
             <a href="#"><i class="fab fa-facebook"></i></a>
             <a href="#"><i class="fab fa-youtube"></i></a>
         </div>
-        <p>&copy; 2026 Empório Barbe - Todos os direitos reservados</p>
+        <p>&copy; 2026 BarbeOnline - Todos os direitos reservados</p>
         <p style="font-size:0.75rem; margin-top:0.3rem;">Feito com ❤️ para barbearias</p>
     </footer>
+
+    <!-- TOAST -->
+    <div class="toast" id="toast">
+        <i class="fas fa-check-circle" style="color: var(--success);"></i>
+        <span id="toastMensagem">Sucesso!</span>
+    </div>
 
     <script>
         const API_URL = '';
         let barbeariaId = 1;
         let slideAtual = 0;
+        let intervaloFilaHome = null;
 
         // ========== FOTOS DO CARROSSEL ==========
         const slides = [
@@ -580,16 +720,61 @@
         function atualizarCarrossel() {
             const slidesContainer = document.getElementById('carouselSlides');
             slidesContainer.style.transform = `translateX(-${slideAtual * 100}%)`;
-
             document.querySelectorAll('.dot').forEach((dot, i) => {
                 dot.classList.toggle('active', i === slideAtual);
             });
         }
 
-        // Auto-play
-        setInterval(() => {
-            mudarSlide(1);
-        }, 5000);
+        // Auto-play do carrossel
+        setInterval(() => { mudarSlide(1); }, 5000);
+
+        // ========== CARREGAR FILA EM TEMPO REAL ==========
+        async function carregarFilaHome() {
+            try {
+                // Buscar fila
+                const filaResponse = await fetch(`/api/fila/${barbeariaId}`);
+                const filaData = await filaResponse.json();
+                const totalFila = filaData.fila || 0;
+
+                // Buscar próximos 5 clientes
+                const proximosResponse = await fetch(`/api/agendamentos/proximos/${barbeariaId}`);
+                const proximos = await proximosResponse.json();
+
+                // Atualizar FILA
+                document.getElementById('filaTotalHome').textContent = totalFila;
+                document.getElementById('tempoMedioHome').textContent = totalFila * 20;
+
+                // Próximo cliente
+                if (proximos && proximos.length > 0) {
+                    document.getElementById('proximoClienteHome').textContent = proximos[0].cliente_nome || proximos[0].cliente || '-';
+                } else {
+                    document.getElementById('proximoClienteHome').textContent = 'Ninguém 🎉';
+                }
+
+                // Lista dos próximos 5
+                const container = document.getElementById('listaProximosHome');
+                if (!proximos || proximos.length === 0) {
+                    container.innerHTML = `
+                        <p style="color:var(--text-muted);text-align:center;padding:0.5rem;">
+                            🎉 Nenhum cliente na fila! Agende agora!
+                        </p>
+                    `;
+                } else {
+                    container.innerHTML = proximos.map((c, index) => `
+                        <div class="cliente-item ${c.prioridade ? 'prioridade' : ''}">
+                            <span class="posicao">#${index + 1}</span>
+                            <span class="nome">${c.cliente_nome || c.cliente || 'Anônimo'}</span>
+                            <span class="servico">${c.servico}</span>
+                            ${c.prioridade ? '<span class="badge badge-warning" style="font-size:0.7rem;">⭐ Prioridade</span>' : ''}
+                            <span class="tempo">⏱ ${(index + 1) * 15}min</span>
+                        </div>
+                    `).join('');
+                }
+
+            } catch (error) {
+                console.error('Erro ao carregar fila:', error);
+            }
+        }
 
         // ========== CARREGAR PLANOS ==========
         async function carregarPlanos() {
@@ -617,7 +802,7 @@
                                     <li><i class="fas fa-check"></i> Desconto em produtos</li>
                                     <li><i class="fas fa-check"></i> Ambiente premium</li>
                                 </div>
-                                <a href="/cliente" class="btn ${p.nome === 'Premium' ? 'btn-warning' : ''}" style="width:100%;justify-content:center;">
+                                <a href="/cliente" class="btn" style="width:100%;justify-content:center;">
                                     ${p.nome === 'Avulso' ? 'Contratar' : 'Assinar'}
                                 </a>
                             </div>
@@ -660,11 +845,26 @@
             }
         }
 
+        // ========== TOAST ==========
+        function mostrarToast(msg, tipo = 'success') {
+            const toast = document.getElementById('toast');
+            const span = document.getElementById('toastMensagem');
+            span.textContent = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
         // ========== INICIALIZAÇÃO ==========
         document.addEventListener('DOMContentLoaded', function() {
             carregarCarrossel();
             carregarPlanos();
             carregarServicos();
+            carregarFilaHome();
+
+            // Atualizar fila a cada 15 segundos
+            intervaloFilaHome = setInterval(() => {
+                carregarFilaHome();
+            }, 15000);
 
             // Scroll suave
             document.querySelectorAll('a[href^="#"]').forEach(anchor => {
@@ -677,6 +877,8 @@
                 });
             });
         });
+
+        console.log('🚀 BarbeOnline - Página inicial carregada!');
     </script>
 </body>
 </html>
