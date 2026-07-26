@@ -154,7 +154,7 @@ async function initDatabase() {
 
             await pool.query(
                 `INSERT INTO barbearias (nome, slug) VALUES ($1, $2)`,
-                ['Empório Barbe', 'emporio-barbe']
+                ['BarbeOnline', 'barbeonline']
             );
             console.log('✅ Barbearia padrão criada!');
 
@@ -193,57 +193,87 @@ async function initDatabase() {
         } else {
             console.log('✅ Banco já possui tabelas, verificando estrutura...');
             
-            const checkSenha = await pool.query(`
+            // Verificar e adicionar colunas faltantes na tabela clientes
+            const colunasClientes = await pool.query(`
                 SELECT column_name 
                 FROM information_schema.columns 
-                WHERE table_name = 'clientes' AND column_name = 'senha'
+                WHERE table_name = 'clientes'
             `);
+            const colunasExistentes = colunasClientes.rows.map(c => c.column_name);
+            console.log('📋 Colunas em clientes:', colunasExistentes);
 
-            if (checkSenha.rows.length === 0) {
+            if (!colunasExistentes.includes('senha')) {
                 console.log('🔧 Adicionando coluna senha...');
                 await pool.query(`ALTER TABLE clientes ADD COLUMN senha VARCHAR(255) NOT NULL DEFAULT ''`);
                 console.log('✅ Coluna senha adicionada!');
             }
 
-            // Adicionar coluna CPF se não existir
-            const checkCpf = await pool.query(`
-                SELECT column_name 
-                FROM information_schema.columns 
-                WHERE table_name = 'clientes' AND column_name = 'cpf'
-            `);
-            if (checkCpf.rows.length === 0) {
+            if (!colunasExistentes.includes('cpf')) {
+                console.log('🔧 Adicionando coluna cpf...');
                 await pool.query(`ALTER TABLE clientes ADD COLUMN cpf VARCHAR(14)`);
-                console.log('✅ Coluna CPF adicionada!');
+                console.log('✅ Coluna cpf adicionada!');
             }
 
-            // Adicionar colunas no agendamentos
-            const checkAgendamentos = await pool.query(`
+            if (!colunasExistentes.includes('telefone')) {
+                console.log('🔧 Adicionando coluna telefone...');
+                await pool.query(`ALTER TABLE clientes ADD COLUMN telefone VARCHAR(20)`);
+                console.log('✅ Coluna telefone adicionada!');
+            }
+
+            if (!colunasExistentes.includes('assinatura')) {
+                console.log('🔧 Adicionando coluna assinatura...');
+                await pool.query(`ALTER TABLE clientes ADD COLUMN assinatura VARCHAR(50) DEFAULT 'nenhum'`);
+                console.log('✅ Coluna assinatura adicionada!');
+            }
+
+            if (!colunasExistentes.includes('cortes_gratis')) {
+                console.log('🔧 Adicionando coluna cortes_gratis...');
+                await pool.query(`ALTER TABLE clientes ADD COLUMN cortes_gratis INTEGER DEFAULT 0`);
+                console.log('✅ Coluna cortes_gratis adicionada!');
+            }
+
+            if (!colunasExistentes.includes('pontos')) {
+                console.log('🔧 Adicionando coluna pontos...');
+                await pool.query(`ALTER TABLE clientes ADD COLUMN pontos INTEGER DEFAULT 0`);
+                console.log('✅ Coluna pontos adicionada!');
+            }
+
+            if (!colunasExistentes.includes('ultimo_login')) {
+                console.log('🔧 Adicionando coluna ultimo_login...');
+                await pool.query(`ALTER TABLE clientes ADD COLUMN ultimo_login TIMESTAMP`);
+                console.log('✅ Coluna ultimo_login adicionada!');
+            }
+
+            // Verificar colunas na tabela agendamentos
+            const colunasAgendamentos = await pool.query(`
                 SELECT column_name 
                 FROM information_schema.columns 
                 WHERE table_name = 'agendamentos'
             `);
-            const colunasAgendamentos = checkAgendamentos.rows.map(c => c.column_name);
-            
-            if (!colunasAgendamentos.includes('cliente_cpf')) {
+            const colunasAgend = colunasAgendamentos.rows.map(c => c.column_name);
+            console.log('📋 Colunas em agendamentos:', colunasAgend);
+
+            if (!colunasAgend.includes('cliente_cpf')) {
                 await pool.query(`ALTER TABLE agendamentos ADD COLUMN cliente_cpf VARCHAR(14)`);
                 console.log('✅ Coluna cliente_cpf adicionada!');
             }
-            if (!colunasAgendamentos.includes('cliente_telefone')) {
+            if (!colunasAgend.includes('cliente_telefone')) {
                 await pool.query(`ALTER TABLE agendamentos ADD COLUMN cliente_telefone VARCHAR(20)`);
                 console.log('✅ Coluna cliente_telefone adicionada!');
             }
-            if (!colunasAgendamentos.includes('forma_pagamento')) {
+            if (!colunasAgend.includes('forma_pagamento')) {
                 await pool.query(`ALTER TABLE agendamentos ADD COLUMN forma_pagamento VARCHAR(20) DEFAULT 'cartao'`);
                 console.log('✅ Coluna forma_pagamento adicionada!');
             }
-            if (!colunasAgendamentos.includes('finalizado_em')) {
+            if (!colunasAgend.includes('finalizado_em')) {
                 await pool.query(`ALTER TABLE agendamentos ADD COLUMN finalizado_em TIMESTAMP`);
                 console.log('✅ Coluna finalizado_em adicionada!');
             }
 
-            const barbeariaCheck = await pool.query(`SELECT * FROM barbearias WHERE slug = 'emporio-barbe'`);
+            // Verificar barbearia padrão
+            const barbeariaCheck = await pool.query(`SELECT * FROM barbearias WHERE slug = 'barbeonline'`);
             if (barbeariaCheck.rows.length === 0) {
-                await pool.query(`INSERT INTO barbearias (nome, slug) VALUES ('Empório Barbe', 'emporio-barbe')`);
+                await pool.query(`INSERT INTO barbearias (nome, slug) VALUES ('BarbeOnline', 'barbeonline')`);
                 console.log('✅ Barbearia padrão criada!');
             }
         }
@@ -259,21 +289,34 @@ async function initDatabase() {
 
 // ========== ROTAS DE AUTENTICAÇÃO ==========
 
+// Registrar cliente - CORRIGIDO
 app.post('/api/clientes/registrar', async (req, res) => {
     const { nome, email, senha, telefone, cpf } = req.body;
+
+    console.log('📝 Registrando cliente:', { nome, email, telefone, cpf });
 
     if (!nome || !email || !senha) {
         return res.status(400).json({ error: 'Nome, email e senha são obrigatórios' });
     }
 
     try {
+        // Verificar se email já existe
         const existe = await pool.query('SELECT id FROM clientes WHERE email = $1', [email]);
         if (existe.rows.length > 0) {
             return res.status(400).json({ error: 'Email já cadastrado' });
         }
 
+        // Verificar se CPF já existe (se foi fornecido)
+        if (cpf) {
+            const existeCpf = await pool.query('SELECT id FROM clientes WHERE cpf = $1', [cpf]);
+            if (existeCpf.rows.length > 0) {
+                return res.status(400).json({ error: 'CPF já cadastrado' });
+            }
+        }
+
         const senhaHash = Buffer.from(senha).toString('base64');
 
+        // Inserir cliente
         const result = await pool.query(
             `INSERT INTO clientes (nome, email, senha, telefone, cpf) 
              VALUES ($1, $2, $3, $4, $5) 
@@ -287,11 +330,12 @@ app.post('/api/clientes/registrar', async (req, res) => {
             message: 'Cliente registrado com sucesso!'
         });
     } catch (error) {
-        console.error('Erro ao registrar cliente:', error);
-        res.status(500).json({ error: 'Erro ao registrar cliente' });
+        console.error('❌ Erro ao registrar cliente:', error);
+        res.status(500).json({ error: 'Erro ao registrar cliente: ' + error.message });
     }
 });
 
+// Login cliente
 app.post('/api/clientes/login', async (req, res) => {
     const { email, senha } = req.body;
 
@@ -329,6 +373,7 @@ app.post('/api/clientes/login', async (req, res) => {
     }
 });
 
+// Buscar cliente por ID
 app.get('/api/clientes/:id', async (req, res) => {
     const { id } = req.params;
 
@@ -351,6 +396,7 @@ app.get('/api/clientes/:id', async (req, res) => {
     }
 });
 
+// Atualizar cliente
 app.put('/api/clientes/:id', async (req, res) => {
     const { id } = req.params;
     const { nome, telefone, cpf, assinatura } = req.body;
@@ -382,6 +428,7 @@ app.put('/api/clientes/:id', async (req, res) => {
     }
 });
 
+// Listar todos os clientes
 app.get('/api/clientes', async (req, res) => {
     try {
         const result = await pool.query(
@@ -711,7 +758,7 @@ app.get('/api/agendamentos/proximos/:barbeariaId', async (req, res) => {
              FROM agendamentos a
              LEFT JOIN clientes c ON a.cliente_id = c.id
              WHERE a.barbearia_id = $1 AND a.status IN ('aguardando', 'confirmado')
-             ORDER BY a.data_hora ASC
+             ORDER BY a.prioridade DESC, a.data_hora ASC
              LIMIT 5`,
             [barbeariaId]
         );
