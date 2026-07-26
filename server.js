@@ -130,14 +130,14 @@ async function initDatabase() {
             )
         `);
 
-        // Verificar se a barbearia existe
-        const barbeariaCheck = await pool.query(`SELECT * FROM barbearias WHERE slug = 'emporio-barbe'`);
+        // Verificar barbearia
+        const barbeariaCheck = await pool.query(`SELECT * FROM barbearias`);
         if (barbeariaCheck.rows.length === 0) {
             await pool.query(`INSERT INTO barbearias (nome, slug) VALUES ('Empório Barbe', 'emporio-barbe')`);
             console.log('✅ Barbearia padrão criada!');
         }
 
-        // Verificar se há serviços
+        // Verificar serviços
         const servicosCheck = await pool.query(`SELECT * FROM servicos_avulsos`);
         if (servicosCheck.rows.length === 0) {
             const servicos = [
@@ -157,7 +157,7 @@ async function initDatabase() {
             console.log('✅ Serviços padrão criados!');
         }
 
-        // Verificar se há planos
+        // Verificar planos
         const planosCheck = await pool.query(`SELECT * FROM planos`);
         if (planosCheck.rows.length === 0) {
             const planos = [
@@ -488,6 +488,26 @@ app.post('/api/planos', async (req, res) => {
     }
 });
 
+app.delete('/api/planos/:id', async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const result = await pool.query(
+            'DELETE FROM planos WHERE id = $1 RETURNING *',
+            [id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Plano não encontrado' });
+        }
+
+        res.json({ success: true, message: 'Plano removido com sucesso' });
+    } catch (error) {
+        console.error('❌ Erro ao deletar plano:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // ========== ROTAS DE AGENDAMENTOS ==========
 
 app.get('/api/agendamentos/:barbeariaId', async (req, res) => {
@@ -578,6 +598,8 @@ app.post('/api/agendamentos', async (req, res) => {
         valor
     } = req.body;
 
+    console.log('📝 Criando agendamento:', { clienteNome, servico, data_hora });
+
     if (!clienteNome || !servico || !data_hora) {
         return res.status(400).json({ error: 'Nome, serviço e data/hora são obrigatórios' });
     }
@@ -586,12 +608,11 @@ app.post('/api/agendamentos', async (req, res) => {
         const barbeariaIdInt = 1;
         let clienteIdInt = null;
 
-        if (clienteId && clienteId !== 'null' && clienteId !== 'undefined') {
+        if (clienteId && clienteId !== 'null' && clienteId !== 'undefined' && clienteId !== '') {
             clienteIdInt = parseInt(clienteId);
             if (isNaN(clienteIdInt) || clienteIdInt <= 0) clienteIdInt = null;
         }
 
-        // Buscar cliente por CPF
         if (clienteCpf && !clienteIdInt) {
             const clienteExistente = await pool.query(
                 'SELECT id FROM clientes WHERE cpf = $1',
@@ -603,12 +624,11 @@ app.post('/api/agendamentos', async (req, res) => {
         }
 
         let planoIdInt = null;
-        if (planoId && planoId !== 'null' && planoId !== 'undefined') {
+        if (planoId && planoId !== 'null' && planoId !== 'undefined' && planoId !== '') {
             planoIdInt = parseInt(planoId);
             if (isNaN(planoIdInt) || planoIdInt <= 0) planoIdInt = null;
         }
 
-        // Buscar valor do serviço
         let valorFinal = valor || 0;
         if (valorFinal === 0) {
             const servicoDb = await pool.query(
@@ -644,7 +664,6 @@ app.post('/api/agendamentos', async (req, res) => {
             ]
         );
 
-        // Criar cliente se não existir
         if (!clienteIdInt && clienteTelefone) {
             const novoCliente = await pool.query(
                 `INSERT INTO clientes (nome, telefone, cpf, email, senha) 
@@ -662,10 +681,9 @@ app.post('/api/agendamentos', async (req, res) => {
             }
         }
 
-        // Atualizar pontos
         if (clienteIdInt) {
             await pool.query(
-                'UPDATE clientes SET pontos = pontos + 1, total_cortes = total_cortes + 1 WHERE id = $1',
+                'UPDATE clientes SET pontos = pontos + 1 WHERE id = $1',
                 [clienteIdInt]
             );
 
@@ -702,7 +720,6 @@ app.put('/api/agendamentos/:id', async (req, res) => {
     const { status } = req.body;
 
     try {
-        // Se for finalizar, buscar cliente para dar pontos
         if (status === 'done') {
             const agendamento = await pool.query(
                 'SELECT cliente_id FROM agendamentos WHERE id = $1',
@@ -712,7 +729,7 @@ app.put('/api/agendamentos/:id', async (req, res) => {
             if (agendamento.rows[0] && agendamento.rows[0].cliente_id) {
                 const clienteId = agendamento.rows[0].cliente_id;
                 await pool.query(
-                    'UPDATE clientes SET pontos = pontos + 1, total_cortes = total_cortes + 1 WHERE id = $1',
+                    'UPDATE clientes SET pontos = pontos + 1 WHERE id = $1',
                     [clienteId]
                 );
                 
@@ -781,7 +798,7 @@ app.post('/api/clientes/adicionar-corte', async (req, res) => {
 
     try {
         const cliente = await pool.query(
-            'SELECT id, nome, pontos, cortes_gratis, total_cortes FROM clientes WHERE cpf = $1',
+            'SELECT id, nome, pontos, cortes_gratis FROM clientes WHERE cpf = $1',
             [cpf]
         );
 
@@ -791,7 +808,6 @@ app.post('/api/clientes/adicionar-corte', async (req, res) => {
 
         const clienteData = cliente.rows[0];
         const novosPontos = (clienteData.pontos || 0) + 1;
-        const novoTotal = (clienteData.total_cortes || 0) + 1;
         let novosCortesGratis = clienteData.cortes_gratis || 0;
 
         if (novosPontos % 4 === 0) {
@@ -800,13 +816,13 @@ app.post('/api/clientes/adicionar-corte', async (req, res) => {
 
         await pool.query(
             `UPDATE clientes 
-             SET pontos = $1, total_cortes = $2, cortes_gratis = $3 
-             WHERE id = $4`,
-            [novosPontos, novoTotal, novosCortesGratis, clienteData.id]
+             SET pontos = $1, cortes_gratis = $2 
+             WHERE id = $3`,
+            [novosPontos, novosCortesGratis, clienteData.id]
         );
 
         const clienteAtualizado = await pool.query(
-            'SELECT id, nome, cpf, pontos, cortes_gratis, total_cortes FROM clientes WHERE id = $1',
+            'SELECT id, nome, cpf, pontos, cortes_gratis FROM clientes WHERE id = $1',
             [clienteData.id]
         );
 
@@ -862,7 +878,7 @@ app.post('/api/clientes/usar-corte-gratis', async (req, res) => {
     }
 });
 
-// ========== ROTAS DE MERCADO PAGO ==========
+// ========== ROTAS DE MERCADO PAGO - PRODUÇÃO ==========
 
 app.post('/api/pagamento/checkout', async (req, res) => {
     const { 
@@ -875,7 +891,7 @@ app.post('/api/pagamento/checkout', async (req, res) => {
         agendamentoId 
     } = req.body;
 
-    console.log('💳 INICIANDO PAGAMENTO:');
+    console.log('💳 INICIANDO PAGAMENTO - PRODUÇÃO:');
     console.log('  Cliente ID:', clienteId);
     console.log('  Cliente:', clienteNome, clienteEmail);
     console.log('  Serviço:', servico);
@@ -926,12 +942,21 @@ app.post('/api/pagamento/checkout', async (req, res) => {
                 failure: `${baseUrl}/falha.html`,
                 pending: `${baseUrl}/pendente.html`
             },
+            auto_return: 'approved',
+            payment_methods: {
+                installments: 1,
+                excluded_payment_methods: [],
+                excluded_payment_types: []
+            },
             notification_url: `${baseUrl}/api/pagamento/webhook`,
             external_reference: agendamentoIdInt ? agendamentoIdInt.toString() : Date.now().toString(),
             statement_descriptor: 'EMPÓRIO BARBE'
         };
 
+        console.log('📤 Enviando para Mercado Pago PRODUÇÃO...');
         const response = await mercadopago.preferences.create(preference);
+        console.log('✅ Preferência criada:', response.body.id);
+        console.log('🔗 Link:', response.body.init_point);
 
         await pool.query(
             `INSERT INTO pagamentos 
