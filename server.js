@@ -20,7 +20,7 @@ const pool = new Pool({
     }
 });
 
-// ========== MERCADO PAGO - PRODUÇÃO ==========
+// ========== MERCADO PAGO ==========
 mercadopago.configure({
     access_token: process.env.MERCADO_PAGO_ACCESS_TOKEN
 });
@@ -62,6 +62,7 @@ async function initDatabase() {
                     assinatura VARCHAR(50) DEFAULT 'nenhum',
                     cortes_gratis INTEGER DEFAULT 0,
                     pontos INTEGER DEFAULT 0,
+                    total_cortes INTEGER DEFAULT 0,
                     criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     ultimo_login TIMESTAMP
                 )
@@ -193,7 +194,7 @@ async function initDatabase() {
         } else {
             console.log('✅ Banco já possui tabelas, verificando estrutura...');
             
-            // Verificar e adicionar colunas faltantes na tabela clientes
+            // Verificar colunas da tabela clientes
             const colunasClientes = await pool.query(`
                 SELECT column_name 
                 FROM information_schema.columns 
@@ -203,55 +204,41 @@ async function initDatabase() {
             console.log('📋 Colunas em clientes:', colunasExistentes);
 
             if (!colunasExistentes.includes('senha')) {
-                console.log('🔧 Adicionando coluna senha...');
                 await pool.query(`ALTER TABLE clientes ADD COLUMN senha VARCHAR(255) NOT NULL DEFAULT ''`);
                 console.log('✅ Coluna senha adicionada!');
             }
-
             if (!colunasExistentes.includes('cpf')) {
-                console.log('🔧 Adicionando coluna cpf...');
                 await pool.query(`ALTER TABLE clientes ADD COLUMN cpf VARCHAR(14)`);
                 console.log('✅ Coluna cpf adicionada!');
             }
-
             if (!colunasExistentes.includes('telefone')) {
-                console.log('🔧 Adicionando coluna telefone...');
                 await pool.query(`ALTER TABLE clientes ADD COLUMN telefone VARCHAR(20)`);
                 console.log('✅ Coluna telefone adicionada!');
             }
-
             if (!colunasExistentes.includes('assinatura')) {
-                console.log('🔧 Adicionando coluna assinatura...');
                 await pool.query(`ALTER TABLE clientes ADD COLUMN assinatura VARCHAR(50) DEFAULT 'nenhum'`);
                 console.log('✅ Coluna assinatura adicionada!');
             }
-
             if (!colunasExistentes.includes('cortes_gratis')) {
-                console.log('🔧 Adicionando coluna cortes_gratis...');
                 await pool.query(`ALTER TABLE clientes ADD COLUMN cortes_gratis INTEGER DEFAULT 0`);
                 console.log('✅ Coluna cortes_gratis adicionada!');
             }
-
             if (!colunasExistentes.includes('pontos')) {
-                console.log('🔧 Adicionando coluna pontos...');
                 await pool.query(`ALTER TABLE clientes ADD COLUMN pontos INTEGER DEFAULT 0`);
                 console.log('✅ Coluna pontos adicionada!');
             }
-
-            if (!colunasExistentes.includes('ultimo_login')) {
-                console.log('🔧 Adicionando coluna ultimo_login...');
-                await pool.query(`ALTER TABLE clientes ADD COLUMN ultimo_login TIMESTAMP`);
-                console.log('✅ Coluna ultimo_login adicionada!');
+            if (!colunasExistentes.includes('total_cortes')) {
+                await pool.query(`ALTER TABLE clientes ADD COLUMN total_cortes INTEGER DEFAULT 0`);
+                console.log('✅ Coluna total_cortes adicionada!');
             }
 
-            // Verificar colunas na tabela agendamentos
+            // Verificar colunas da tabela agendamentos
             const colunasAgendamentos = await pool.query(`
                 SELECT column_name 
                 FROM information_schema.columns 
                 WHERE table_name = 'agendamentos'
             `);
             const colunasAgend = colunasAgendamentos.rows.map(c => c.column_name);
-            console.log('📋 Colunas em agendamentos:', colunasAgend);
 
             if (!colunasAgend.includes('cliente_cpf')) {
                 await pool.query(`ALTER TABLE agendamentos ADD COLUMN cliente_cpf VARCHAR(14)`);
@@ -289,24 +276,19 @@ async function initDatabase() {
 
 // ========== ROTAS DE AUTENTICAÇÃO ==========
 
-// Registrar cliente - CORRIGIDO
 app.post('/api/clientes/registrar', async (req, res) => {
     const { nome, email, senha, telefone, cpf } = req.body;
-
-    console.log('📝 Registrando cliente:', { nome, email, telefone, cpf });
 
     if (!nome || !email || !senha) {
         return res.status(400).json({ error: 'Nome, email e senha são obrigatórios' });
     }
 
     try {
-        // Verificar se email já existe
         const existe = await pool.query('SELECT id FROM clientes WHERE email = $1', [email]);
         if (existe.rows.length > 0) {
             return res.status(400).json({ error: 'Email já cadastrado' });
         }
 
-        // Verificar se CPF já existe (se foi fornecido)
         if (cpf) {
             const existeCpf = await pool.query('SELECT id FROM clientes WHERE cpf = $1', [cpf]);
             if (existeCpf.rows.length > 0) {
@@ -316,11 +298,10 @@ app.post('/api/clientes/registrar', async (req, res) => {
 
         const senhaHash = Buffer.from(senha).toString('base64');
 
-        // Inserir cliente
         const result = await pool.query(
             `INSERT INTO clientes (nome, email, senha, telefone, cpf) 
              VALUES ($1, $2, $3, $4, $5) 
-             RETURNING id, nome, email, telefone, cpf, assinatura, cortes_gratis, pontos, criado_em`,
+             RETURNING id, nome, email, telefone, cpf, assinatura, cortes_gratis, pontos, total_cortes, criado_em`,
             [nome, email, senhaHash, telefone || null, cpf || null]
         );
 
@@ -335,7 +316,6 @@ app.post('/api/clientes/registrar', async (req, res) => {
     }
 });
 
-// Login cliente
 app.post('/api/clientes/login', async (req, res) => {
     const { email, senha } = req.body;
 
@@ -347,7 +327,7 @@ app.post('/api/clientes/login', async (req, res) => {
         const senhaHash = Buffer.from(senha).toString('base64');
 
         const result = await pool.query(
-            `SELECT id, nome, email, telefone, cpf, assinatura, cortes_gratis, pontos, criado_em 
+            `SELECT id, nome, email, telefone, cpf, assinatura, cortes_gratis, pontos, total_cortes, criado_em 
              FROM clientes 
              WHERE email = $1 AND senha = $2`,
             [email, senhaHash]
@@ -373,13 +353,12 @@ app.post('/api/clientes/login', async (req, res) => {
     }
 });
 
-// Buscar cliente por ID
 app.get('/api/clientes/:id', async (req, res) => {
     const { id } = req.params;
 
     try {
         const result = await pool.query(
-            `SELECT id, nome, email, telefone, cpf, assinatura, cortes_gratis, pontos, criado_em, ultimo_login 
+            `SELECT id, nome, email, telefone, cpf, assinatura, cortes_gratis, pontos, total_cortes, criado_em, ultimo_login 
              FROM clientes 
              WHERE id = $1`,
             [id]
@@ -396,7 +375,6 @@ app.get('/api/clientes/:id', async (req, res) => {
     }
 });
 
-// Atualizar cliente
 app.put('/api/clientes/:id', async (req, res) => {
     const { id } = req.params;
     const { nome, telefone, cpf, assinatura } = req.body;
@@ -409,7 +387,7 @@ app.put('/api/clientes/:id', async (req, res) => {
                  cpf = COALESCE($3, cpf),
                  assinatura = COALESCE($4, assinatura)
              WHERE id = $5
-             RETURNING id, nome, email, telefone, cpf, assinatura, cortes_gratis, pontos`,
+             RETURNING id, nome, email, telefone, cpf, assinatura, cortes_gratis, pontos, total_cortes`,
             [nome, telefone, cpf, assinatura, id]
         );
 
@@ -428,11 +406,10 @@ app.put('/api/clientes/:id', async (req, res) => {
     }
 });
 
-// Listar todos os clientes
 app.get('/api/clientes', async (req, res) => {
     try {
         const result = await pool.query(
-            'SELECT id, nome, email, telefone, cpf, assinatura, cortes_gratis, pontos, criado_em FROM clientes ORDER BY id'
+            'SELECT id, nome, email, telefone, cpf, assinatura, cortes_gratis, pontos, total_cortes, criado_em FROM clientes ORDER BY id'
         );
         res.json(result.rows);
     } catch (error) {
@@ -440,12 +417,11 @@ app.get('/api/clientes', async (req, res) => {
     }
 });
 
-// Buscar cliente por CPF
 app.get('/api/clientes/cpf/:cpf', async (req, res) => {
     const { cpf } = req.params;
     try {
         const result = await pool.query(
-            'SELECT id, nome, email, telefone, cpf, assinatura, cortes_gratis, pontos FROM clientes WHERE cpf = $1',
+            'SELECT id, nome, email, telefone, cpf, assinatura, cortes_gratis, pontos, total_cortes FROM clientes WHERE cpf = $1',
             [cpf]
         );
         if (result.rows.length === 0) {
@@ -457,7 +433,7 @@ app.get('/api/clientes/cpf/:cpf', async (req, res) => {
     }
 });
 
-// ========== ROTAS DE ADMIN (BARBEARIA) ==========
+// ========== ROTAS DE ADMIN ==========
 
 app.post('/api/admin/login', async (req, res) => {
     const { email, senha } = req.body;
@@ -593,7 +569,7 @@ app.get('/api/servicos/:barbeariaId', async (req, res) => {
 
     try {
         const result = await pool.query(
-            'SELECT * FROM servicos_avulsos WHERE barbearia_id = $1 AND ativo = true ORDER BY id',
+            'SELECT * FROM servicos_avulsos WHERE barbearia_id = $1 ORDER BY id',
             [barbeariaId]
         );
         res.json(result.rows);
@@ -646,7 +622,7 @@ app.delete('/api/servicos/:id', async (req, res) => {
 
     try {
         const result = await pool.query(
-            'UPDATE servicos_avulsos SET ativo = false WHERE id = $1 RETURNING *',
+            'DELETE FROM servicos_avulsos WHERE id = $1 RETURNING *',
             [id]
         );
 
@@ -654,7 +630,7 @@ app.delete('/api/servicos/:id', async (req, res) => {
             return res.status(404).json({ error: 'Serviço não encontrado' });
         }
 
-        res.json({ success: true, message: 'Serviço desativado com sucesso' });
+        res.json({ success: true, message: 'Serviço removido com sucesso' });
     } catch (error) {
         console.error('❌ Erro ao deletar serviço:', error);
         res.status(500).json({ error: error.message });
@@ -668,7 +644,7 @@ app.get('/api/planos/:barbeariaId', async (req, res) => {
 
     try {
         const result = await pool.query(
-            'SELECT * FROM planos WHERE barbearia_id = $1 AND ativo = true ORDER BY preco',
+            'SELECT * FROM planos WHERE barbearia_id = $1 ORDER BY preco',
             [barbeariaId]
         );
         res.json(result.rows);
@@ -891,20 +867,23 @@ app.post('/api/agendamentos', async (req, res) => {
                     'UPDATE agendamentos SET cliente_id = $1 WHERE id = $2',
                     [novoCliente.rows[0].id, result.rows[0].id]
                 );
+                clienteIdInt = novoCliente.rows[0].id;
             }
         }
 
+        // Atualizar pontos e contagem de cortes
         if (clienteIdInt) {
             await pool.query(
-                'UPDATE clientes SET pontos = pontos + 1 WHERE id = $1',
+                'UPDATE clientes SET pontos = pontos + 1, total_cortes = total_cortes + 1 WHERE id = $1',
                 [clienteIdInt]
             );
 
             const cliente = await pool.query(
-                'SELECT pontos FROM clientes WHERE id = $1',
+                'SELECT pontos, total_cortes FROM clientes WHERE id = $1',
                 [clienteIdInt]
             );
             
+            // A cada 4 cortes, ganha 1 grátis
             if (cliente.rows[0] && cliente.rows[0].pontos % 4 === 0) {
                 await pool.query(
                     'UPDATE clientes SET cortes_gratis = cortes_gratis + 1 WHERE id = $1',
@@ -951,6 +930,34 @@ app.put('/api/agendamentos/:id', async (req, res) => {
 
         if (status === 'done') {
             query += `, finalizado_em = NOW()`;
+            
+            // Buscar o cliente_id do agendamento
+            const agendamento = await pool.query(
+                'SELECT cliente_id FROM agendamentos WHERE id = $1',
+                [id]
+            );
+            
+            if (agendamento.rows[0] && agendamento.rows[0].cliente_id) {
+                const clienteId = agendamento.rows[0].cliente_id;
+                // Atualizar pontos e total de cortes
+                await pool.query(
+                    'UPDATE clientes SET pontos = pontos + 1, total_cortes = total_cortes + 1 WHERE id = $1',
+                    [clienteId]
+                );
+                
+                const cliente = await pool.query(
+                    'SELECT pontos FROM clientes WHERE id = $1',
+                    [clienteId]
+                );
+                
+                if (cliente.rows[0] && cliente.rows[0].pontos % 4 === 0) {
+                    await pool.query(
+                        'UPDATE clientes SET cortes_gratis = cortes_gratis + 1 WHERE id = $1',
+                        [clienteId]
+                    );
+                    console.log('🎉 Cliente ganhou corte grátis!');
+                }
+            }
         }
 
         query += ` WHERE id = $${paramCount} RETURNING *`;
@@ -987,7 +994,122 @@ app.delete('/api/agendamentos/:id', async (req, res) => {
     }
 });
 
-// ========== ROTAS DE ESTOQUE ==========
+// ========== ROTAS DE FILA ==========
+
+app.get('/api/fila/:barbeariaId', async (req, res) => {
+    const { barbeariaId } = req.params;
+
+    try {
+        const result = await pool.query(
+            `SELECT COUNT(*) as total 
+             FROM agendamentos 
+             WHERE barbearia_id = $1 AND status IN ('aguardando', 'confirmado')`,
+            [barbeariaId]
+        );
+        res.json({ fila: parseInt(result.rows[0].total) || 0 });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ========== ROTA PARA ADICIONAR CORTE MANUAL (CPF) ==========
+app.post('/api/clientes/adicionar-corte', async (req, res) => {
+    const { cpf } = req.body;
+
+    if (!cpf) {
+        return res.status(400).json({ error: 'CPF é obrigatório' });
+    }
+
+    try {
+        // Buscar cliente pelo CPF
+        const cliente = await pool.query(
+            'SELECT id, nome, pontos, cortes_gratis, total_cortes FROM clientes WHERE cpf = $1',
+            [cpf]
+        );
+
+        if (cliente.rows.length === 0) {
+            return res.status(404).json({ error: 'Cliente não encontrado' });
+        }
+
+        const clienteData = cliente.rows[0];
+        
+        // Atualizar pontos e total de cortes
+        const novosPontos = clienteData.pontos + 1;
+        const novoTotal = clienteData.total_cortes + 1;
+        let novosCortesGratis = clienteData.cortes_gratis;
+
+        // Verificar se ganhou corte grátis (a cada 4 cortes)
+        if (novosPontos % 4 === 0) {
+            novosCortesGratis += 1;
+        }
+
+        await pool.query(
+            `UPDATE clientes 
+             SET pontos = $1, total_cortes = $2, cortes_gratis = $3 
+             WHERE id = $4`,
+            [novosPontos, novoTotal, novosCortesGratis, clienteData.id]
+        );
+
+        // Buscar dados atualizados
+        const clienteAtualizado = await pool.query(
+            'SELECT id, nome, cpf, pontos, cortes_gratis, total_cortes FROM clientes WHERE id = $1',
+            [clienteData.id]
+        );
+
+        res.json({
+            success: true,
+            cliente: clienteAtualizado.rows[0],
+            message: 'Corte adicionado com sucesso!'
+        });
+
+    } catch (error) {
+        console.error('❌ Erro ao adicionar corte:', error);
+        res.status(500).json({ error: 'Erro ao adicionar corte: ' + error.message });
+    }
+});
+
+// ========== ROTA PARA USAR CORTE GRÁTIS ==========
+app.post('/api/clientes/usar-corte-gratis', async (req, res) => {
+    const { cpf } = req.body;
+
+    if (!cpf) {
+        return res.status(400).json({ error: 'CPF é obrigatório' });
+    }
+
+    try {
+        const cliente = await pool.query(
+            'SELECT id, nome, cortes_gratis FROM clientes WHERE cpf = $1',
+            [cpf]
+        );
+
+        if (cliente.rows.length === 0) {
+            return res.status(404).json({ error: 'Cliente não encontrado' });
+        }
+
+        if (cliente.rows[0].cortes_gratis <= 0) {
+            return res.status(400).json({ error: 'Cliente não tem cortes grátis disponíveis' });
+        }
+
+        const novosCortesGratis = cliente.rows[0].cortes_gratis - 1;
+
+        await pool.query(
+            `UPDATE clientes SET cortes_gratis = $1 WHERE id = $2`,
+            [novosCortesGratis, cliente.rows[0].id]
+        );
+
+        res.json({
+            success: true,
+            message: 'Corte grátis utilizado com sucesso!',
+            cortes_gratis_restantes: novosCortesGratis
+        });
+
+    } catch (error) {
+        console.error('❌ Erro ao usar corte grátis:', error);
+        res.status(500).json({ error: 'Erro ao usar corte grátis: ' + error.message });
+    }
+});
+
+// ========== ROTA DE ESTOQUE ==========
 
 app.get('/api/estoque/:barbeariaId', async (req, res) => {
     const { barbeariaId } = req.params;
@@ -1020,24 +1142,6 @@ app.post('/api/estoque', async (req, res) => {
             [barbeariaId, item, quantidade]
         );
         res.json(result.rows[0]);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// ========== ROTAS DE FILA ==========
-
-app.get('/api/fila/:barbeariaId', async (req, res) => {
-    const { barbeariaId } = req.params;
-
-    try {
-        const result = await pool.query(
-            `SELECT COUNT(*) as total 
-             FROM agendamentos 
-             WHERE barbearia_id = $1 AND status IN ('aguardando', 'confirmado')`,
-            [barbeariaId]
-        );
-        res.json({ fila: parseInt(result.rows[0].total) || 0 });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -1094,7 +1198,7 @@ app.post('/api/pagamento/checkout', async (req, res) => {
         agendamentoId 
     } = req.body;
 
-    console.log('💳 INICIANDO PAGAMENTO - PRODUÇÃO:');
+    console.log('💳 INICIANDO PAGAMENTO:');
     console.log('  Cliente ID:', clienteId);
     console.log('  Cliente:', clienteNome, clienteEmail);
     console.log('  Serviço:', servico);
@@ -1221,7 +1325,7 @@ app.post('/api/pagamento/checkout', async (req, res) => {
             statement_descriptor: 'BARBEONLINE'
         };
 
-        console.log('📤 Enviando para Mercado Pago PRODUÇÃO...');
+        console.log('📤 Enviando para Mercado Pago...');
         const response = await mercadopago.preferences.create(preference);
         console.log('✅ Preferência criada:', response.body.id);
 
