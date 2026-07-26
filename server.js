@@ -138,7 +138,7 @@ async function initDatabase() {
         }
 
         // Verificar serviços
-        const servicosCheck = await pool.query(`SELECT * FROM servicos_avulsos`);
+        const servicosCheck = await pool.query(`SELECT * FROM servicos_avulsos WHERE barbearia_id = 1`);
         if (servicosCheck.rows.length === 0) {
             const servicos = [
                 { nome: 'Corte de Cabelo', descricao: 'Corte completo com tesoura e máquina', preco: 45.00, duracao: 30 },
@@ -150,7 +150,9 @@ async function initDatabase() {
             for (const servico of servicos) {
                 await pool.query(
                     `INSERT INTO servicos_avulsos (barbearia_id, nome, descricao, preco, duracao) 
-                     VALUES ($1, $2, $3, $4, $5)`,
+                     VALUES ($1, $2, $3, $4, $5) 
+                     ON CONFLICT (barbearia_id, nome) 
+                     DO UPDATE SET descricao = EXCLUDED.descricao, preco = EXCLUDED.preco, duracao = EXCLUDED.duracao`,
                     [1, servico.nome, servico.descricao, servico.preco, servico.duracao]
                 );
             }
@@ -158,7 +160,7 @@ async function initDatabase() {
         }
 
         // Verificar planos
-        const planosCheck = await pool.query(`SELECT * FROM planos`);
+        const planosCheck = await pool.query(`SELECT * FROM planos WHERE barbearia_id = 1`);
         if (planosCheck.rows.length === 0) {
             const planos = [
                 { nome: 'Avulso', descricao: 'Corte único sem compromisso', preco: 45.00, cortes_por_mes: 1, prioridade: false },
@@ -169,7 +171,10 @@ async function initDatabase() {
             for (const plano of planos) {
                 await pool.query(
                     `INSERT INTO planos (barbearia_id, nome, descricao, preco, cortes_por_mes, prioridade) 
-                     VALUES ($1, $2, $3, $4, $5, $6)`,
+                     VALUES ($1, $2, $3, $4, $5, $6) 
+                     ON CONFLICT (barbearia_id, nome) 
+                     DO UPDATE SET descricao = EXCLUDED.descricao, preco = EXCLUDED.preco, 
+                                   cortes_por_mes = EXCLUDED.cortes_por_mes, prioridade = EXCLUDED.prioridade`,
                     [1, plano.nome, plano.descricao, plano.preco, plano.cortes_por_mes, plano.prioridade]
                 );
             }
@@ -254,6 +259,59 @@ app.post('/api/clientes/login', async (req, res) => {
     } catch (error) {
         console.error('Erro no login:', error);
         res.status(500).json({ error: 'Erro ao fazer login' });
+    }
+});
+
+app.get('/api/clientes/:id', async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const result = await pool.query(
+            `SELECT id, nome, email, telefone, cpf, assinatura, cortes_gratis, pontos, total_cortes, criado_em, ultimo_login 
+             FROM clientes 
+             WHERE id = $1`,
+            [id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Cliente não encontrado' });
+        }
+
+        res.json(result.rows[0]);
+    } catch (error) {
+        console.error('Erro ao buscar cliente:', error);
+        res.status(500).json({ error: 'Erro ao buscar cliente' });
+    }
+});
+
+app.put('/api/clientes/:id', async (req, res) => {
+    const { id } = req.params;
+    const { nome, telefone, cpf, assinatura } = req.body;
+
+    try {
+        const result = await pool.query(
+            `UPDATE clientes 
+             SET nome = COALESCE($1, nome), 
+                 telefone = COALESCE($2, telefone),
+                 cpf = COALESCE($3, cpf),
+                 assinatura = COALESCE($4, assinatura)
+             WHERE id = $5
+             RETURNING id, nome, email, telefone, cpf, assinatura, cortes_gratis, pontos, total_cortes`,
+            [nome, telefone, cpf, assinatura, id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Cliente não encontrado' });
+        }
+
+        res.json({
+            success: true,
+            cliente: result.rows[0],
+            message: 'Cliente atualizado com sucesso!'
+        });
+    } catch (error) {
+        console.error('Erro ao atualizar cliente:', error);
+        res.status(500).json({ error: 'Erro ao atualizar cliente' });
     }
 });
 
@@ -878,7 +936,7 @@ app.post('/api/clientes/usar-corte-gratis', async (req, res) => {
     }
 });
 
-// ========== ROTAS DE MERCADO PAGO - PRODUÇÃO ==========
+// ========== ROTAS DE MERCADO PAGO ==========
 
 app.post('/api/pagamento/checkout', async (req, res) => {
     const { 
@@ -891,38 +949,85 @@ app.post('/api/pagamento/checkout', async (req, res) => {
         agendamentoId 
     } = req.body;
 
-    console.log('💳 INICIANDO PAGAMENTO - PRODUÇÃO:');
+    console.log('💳 INICIANDO PAGAMENTO:');
     console.log('  Cliente ID:', clienteId);
     console.log('  Cliente:', clienteNome, clienteEmail);
     console.log('  Serviço:', servico);
     console.log('  Valor:', valor);
     console.log('  Agendamento:', agendamentoId);
 
-    if (!clienteId || !clienteEmail || !valor || !descricao) {
-        return res.status(400).json({ 
-            success: false, 
-            error: 'Dados incompletos' 
-        });
+    if (!clienteId) {
+        return res.status(400).json({ success: false, error: 'ID do cliente é obrigatório' });
+    }
+
+    const clienteIdInt = parseInt(clienteId);
+    if (isNaN(clienteIdInt) || clienteIdInt <= 0) {
+        return res.status(400).json({ success: false, error: 'ID do cliente inválido' });
+    }
+
+    if (!clienteEmail) {
+        return res.status(400).json({ success: false, error: 'Email do cliente é obrigatório' });
+    }
+    if (!valor || isNaN(parseFloat(valor)) || parseFloat(valor) <= 0) {
+        return res.status(400).json({ success: false, error: 'Valor inválido' });
+    }
+    if (!descricao) {
+        return res.status(400).json({ success: false, error: 'Descrição é obrigatória' });
     }
 
     try {
-        const clienteIdInt = parseInt(clienteId);
-        const valorNumerico = parseFloat(valor);
-
         const cliente = await pool.query('SELECT * FROM clientes WHERE id = $1', [clienteIdInt]);
         if (cliente.rows.length === 0) {
             return res.status(404).json({ success: false, error: 'Cliente não encontrado' });
         }
 
         const clienteData = cliente.rows[0];
+        const valorNumerico = parseFloat(valor);
 
         let agendamentoIdInt = null;
-        if (agendamentoId && agendamentoId !== 'null' && agendamentoId !== 'undefined') {
+        if (agendamentoId && agendamentoId !== 'null' && agendamentoId !== 'undefined' && agendamentoId !== '') {
             agendamentoIdInt = parseInt(agendamentoId);
-            if (isNaN(agendamentoIdInt) || agendamentoIdInt <= 0) agendamentoIdInt = null;
+            if (isNaN(agendamentoIdInt) || agendamentoIdInt <= 0) {
+                agendamentoIdInt = null;
+            }
+        }
+
+        // Tratar telefone
+        let telefoneNumero = 999999999;
+        let ddd = '11';
+
+        if (clienteData.telefone) {
+            const numeros = clienteData.telefone.replace(/\D/g, '');
+            if (numeros.length >= 10) {
+                ddd = numeros.slice(0, 2);
+                telefoneNumero = parseInt(numeros.slice(2)) || 999999999;
+            } else if (numeros.length >= 8) {
+                ddd = '11';
+                telefoneNumero = parseInt(numeros) || 999999999;
+            } else {
+                ddd = '11';
+                telefoneNumero = 999999999;
+            }
+        } else {
+            ddd = '11';
+            telefoneNumero = 999999999;
+        }
+
+        if (telefoneNumero < 10000000 || telefoneNumero > 999999999) {
+            ddd = '11';
+            telefoneNumero = 999999999;
         }
 
         const baseUrl = process.env.BASE_URL || 'https://barbeonline.vercel.app';
+
+        const payer = {
+            name: (clienteData.nome || clienteNome || 'Cliente').substring(0, 50),
+            email: (clienteEmail || clienteData.email || 'cliente@email.com').substring(0, 50),
+            phone: {
+                area_code: ddd,
+                number: telefoneNumero
+            }
+        };
 
         const preference = {
             items: [{
@@ -931,12 +1036,10 @@ app.post('/api/pagamento/checkout', async (req, res) => {
                 description: servico || descricao,
                 unit_price: valorNumerico,
                 quantity: 1,
-                currency_id: 'BRL'
+                currency_id: 'BRL',
+                picture_url: 'https://images.unsplash.com/photo-1585747860715-2ba37e788b70?w=200&h=200&fit=crop'
             }],
-            payer: {
-                name: (clienteData.nome || clienteNome || 'Cliente').substring(0, 50),
-                email: (clienteEmail || clienteData.email || 'cliente@email.com').substring(0, 50)
-            },
+            payer: payer,
             back_urls: {
                 success: `${baseUrl}/sucesso.html`,
                 failure: `${baseUrl}/falha.html`,
@@ -953,7 +1056,7 @@ app.post('/api/pagamento/checkout', async (req, res) => {
             statement_descriptor: 'EMPÓRIO BARBE'
         };
 
-        console.log('📤 Enviando para Mercado Pago PRODUÇÃO...');
+        console.log('📤 Enviando para Mercado Pago...');
         const response = await mercadopago.preferences.create(preference);
         console.log('✅ Preferência criada:', response.body.id);
         console.log('🔗 Link:', response.body.init_point);
