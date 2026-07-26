@@ -52,6 +52,7 @@ async function initDatabase() {
                 cortes_gratis INTEGER DEFAULT 0,
                 pontos INTEGER DEFAULT 0,
                 total_cortes INTEGER DEFAULT 0,
+                is_admin BOOLEAN DEFAULT FALSE,
                 criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 ultimo_login TIMESTAMP
             )
@@ -181,6 +182,18 @@ async function initDatabase() {
             console.log('✅ Planos padrão criados!');
         }
 
+        // Criar admin padrão se não existir
+        const adminCheck = await pool.query(`SELECT * FROM clientes WHERE email = 'admin@barbearia.com'`);
+        if (adminCheck.rows.length === 0) {
+            const senhaHash = Buffer.from('admin123').toString('base64');
+            await pool.query(
+                `INSERT INTO clientes (nome, email, senha, telefone, cpf, is_admin) 
+                 VALUES ($1, $2, $3, $4, $5, $6)`,
+                ['Administrador', 'admin@barbearia.com', senhaHash, '11999999999', '00000000000', true]
+            );
+            console.log('✅ Admin padrão criado!');
+        }
+
         console.log('✅ Banco de dados pronto!');
         return 1;
         
@@ -210,7 +223,7 @@ app.post('/api/clientes/registrar', async (req, res) => {
         const result = await pool.query(
             `INSERT INTO clientes (nome, email, senha, telefone, cpf) 
              VALUES ($1, $2, $3, $4, $5) 
-             RETURNING id, nome, email, telefone, cpf, assinatura, cortes_gratis, pontos, total_cortes, criado_em`,
+             RETURNING id, nome, email, telefone, cpf, assinatura, cortes_gratis, pontos, total_cortes, is_admin, criado_em`,
             [nome, email, senhaHash, telefone || null, cpf || null]
         );
 
@@ -236,7 +249,7 @@ app.post('/api/clientes/login', async (req, res) => {
         const senhaHash = Buffer.from(senha).toString('base64');
 
         const result = await pool.query(
-            `SELECT id, nome, email, telefone, cpf, assinatura, cortes_gratis, pontos, total_cortes, criado_em 
+            `SELECT id, nome, email, telefone, cpf, assinatura, cortes_gratis, pontos, total_cortes, is_admin, criado_em 
              FROM clientes 
              WHERE email = $1 AND senha = $2`,
             [email, senhaHash]
@@ -267,7 +280,7 @@ app.get('/api/clientes/:id', async (req, res) => {
 
     try {
         const result = await pool.query(
-            `SELECT id, nome, email, telefone, cpf, assinatura, cortes_gratis, pontos, total_cortes, criado_em, ultimo_login 
+            `SELECT id, nome, email, telefone, cpf, assinatura, cortes_gratis, pontos, total_cortes, is_admin, criado_em, ultimo_login 
              FROM clientes 
              WHERE id = $1`,
             [id]
@@ -296,7 +309,7 @@ app.put('/api/clientes/:id', async (req, res) => {
                  cpf = COALESCE($3, cpf),
                  assinatura = COALESCE($4, assinatura)
              WHERE id = $5
-             RETURNING id, nome, email, telefone, cpf, assinatura, cortes_gratis, pontos, total_cortes`,
+             RETURNING id, nome, email, telefone, cpf, assinatura, cortes_gratis, pontos, total_cortes, is_admin`,
             [nome, telefone, cpf, assinatura, id]
         );
 
@@ -318,7 +331,7 @@ app.put('/api/clientes/:id', async (req, res) => {
 app.get('/api/clientes', async (req, res) => {
     try {
         const result = await pool.query(
-            'SELECT id, nome, email, telefone, cpf, assinatura, cortes_gratis, pontos, total_cortes, criado_em FROM clientes ORDER BY id'
+            'SELECT id, nome, email, telefone, cpf, assinatura, cortes_gratis, pontos, total_cortes, is_admin, criado_em FROM clientes ORDER BY id'
         );
         res.json(result.rows);
     } catch (error) {
@@ -347,32 +360,82 @@ app.get('/api/clientes/cpf/:cpf', async (req, res) => {
 app.post('/api/admin/login', async (req, res) => {
     const { email, senha } = req.body;
 
+    console.log('🔐 Tentativa de login admin:', { email });
+
     if (!email || !senha) {
         return res.status(400).json({ error: 'Email e senha são obrigatórios' });
     }
 
     try {
-        const adminEmail = process.env.ADMIN_EMAIL || 'admin@barbearia.com';
-        const adminSenha = process.env.ADMIN_PASSWORD || 'admin123';
+        const senhaHash = Buffer.from(senha).toString('base64');
 
-        if (email === adminEmail && senha === adminSenha) {
+        // Buscar usuário que seja admin
+        const result = await pool.query(
+            `SELECT id, nome, email, is_admin FROM clientes 
+             WHERE email = $1 AND senha = $2 AND is_admin = true`,
+            [email, senhaHash]
+        );
+
+        if (result.rows.length > 0) {
+            const usuario = result.rows[0];
             const token = Buffer.from(`${email}:${Date.now()}`).toString('base64');
+            
+            console.log('✅ Login admin realizado com sucesso!');
             
             res.json({
                 success: true,
                 token: token,
                 admin: {
-                    nome: 'Administrador',
-                    email: adminEmail
+                    id: usuario.id,
+                    nome: usuario.nome,
+                    email: usuario.email
                 },
                 message: 'Login realizado com sucesso!'
             });
         } else {
+            // Verificar se existe algum admin no banco
+            const adminCheck = await pool.query(`SELECT * FROM clientes WHERE is_admin = true`);
+            if (adminCheck.rows.length === 0) {
+                console.log('⚠️ Nenhum admin encontrado no banco!');
+                // Criar admin automaticamente
+                const senhaHashAdmin = Buffer.from('admin123').toString('base64');
+                await pool.query(
+                    `INSERT INTO clientes (nome, email, senha, telefone, cpf, is_admin) 
+                     VALUES ($1, $2, $3, $4, $5, $6)`,
+                    ['Administrador', 'admin@barbearia.com', senhaHashAdmin, '11999999999', '00000000000', true]
+                );
+                console.log('✅ Admin criado automaticamente!');
+                
+                // Tentar login novamente
+                const result2 = await pool.query(
+                    `SELECT id, nome, email, is_admin FROM clientes 
+                     WHERE email = $1 AND senha = $2 AND is_admin = true`,
+                    [email, senhaHash]
+                );
+                
+                if (result2.rows.length > 0) {
+                    const usuario = result2.rows[0];
+                    const token = Buffer.from(`${email}:${Date.now()}`).toString('base64');
+                    
+                    return res.json({
+                        success: true,
+                        token: token,
+                        admin: {
+                            id: usuario.id,
+                            nome: usuario.nome,
+                            email: usuario.email
+                        },
+                        message: 'Login realizado com sucesso!'
+                    });
+                }
+            }
+            
+            console.log('❌ Credenciais inválidas ou usuário não é admin');
             res.status(401).json({ error: 'Email ou senha incorretos' });
         }
     } catch (error) {
-        console.error('Erro no login admin:', error);
-        res.status(500).json({ error: 'Erro ao fazer login' });
+        console.error('❌ Erro no login admin:', error);
+        res.status(500).json({ error: 'Erro ao fazer login: ' + error.message });
     }
 });
 
@@ -387,14 +450,18 @@ app.get('/api/admin/verificar', async (req, res) => {
         const decoded = Buffer.from(token, 'base64').toString();
         const [email] = decoded.split(':');
         
-        const adminEmail = process.env.ADMIN_EMAIL || 'admin@barbearia.com';
+        const result = await pool.query(
+            `SELECT id, nome, email FROM clientes WHERE email = $1 AND is_admin = true`,
+            [email]
+        );
         
-        if (email === adminEmail) {
+        if (result.rows.length > 0) {
             res.json({
                 success: true,
                 admin: {
-                    nome: 'Administrador',
-                    email: adminEmail
+                    id: result.rows[0].id,
+                    nome: result.rows[0].nome,
+                    email: result.rows[0].email
                 }
             });
         } else {
@@ -992,41 +1059,11 @@ app.post('/api/pagamento/checkout', async (req, res) => {
             }
         }
 
-        // Tratar telefone
-        let telefoneNumero = 999999999;
-        let ddd = '11';
-
-        if (clienteData.telefone) {
-            const numeros = clienteData.telefone.replace(/\D/g, '');
-            if (numeros.length >= 10) {
-                ddd = numeros.slice(0, 2);
-                telefoneNumero = parseInt(numeros.slice(2)) || 999999999;
-            } else if (numeros.length >= 8) {
-                ddd = '11';
-                telefoneNumero = parseInt(numeros) || 999999999;
-            } else {
-                ddd = '11';
-                telefoneNumero = 999999999;
-            }
-        } else {
-            ddd = '11';
-            telefoneNumero = 999999999;
-        }
-
-        if (telefoneNumero < 10000000 || telefoneNumero > 999999999) {
-            ddd = '11';
-            telefoneNumero = 999999999;
-        }
-
         const baseUrl = process.env.BASE_URL || 'https://barbeonline.vercel.app';
 
         const payer = {
             name: (clienteData.nome || clienteNome || 'Cliente').substring(0, 50),
-            email: (clienteEmail || clienteData.email || 'cliente@email.com').substring(0, 50),
-            phone: {
-                area_code: ddd,
-                number: telefoneNumero
-            }
+            email: (clienteEmail || clienteData.email || 'cliente@email.com').substring(0, 50)
         };
 
         const preference = {
