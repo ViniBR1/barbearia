@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BarbeOnline - Painel Admin</title>
+    <title>Empório Barbe - Painel Admin</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
         * {
@@ -159,11 +159,6 @@
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
             gap: 1rem;
-        }
-        .grid-4 {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 0.8rem;
         }
 
         .tab-content {
@@ -397,7 +392,7 @@
             .navbar { flex-direction: column; gap: 0.5rem; }
             .nav-links { justify-content: center; }
             .form-row { grid-template-columns: 1fr; }
-            .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+            .grid-2, .grid-3 { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -406,7 +401,7 @@
     <!-- TELA DE LOGIN -->
     <div id="telaLogin">
         <div class="card">
-            <h2><i class="fas fa-scissors"></i> BarbeOnline - Admin</h2>
+            <h2><i class="fas fa-scissors"></i> Empório Barbe - Admin</h2>
             <div class="form-group">
                 <label>Email</label>
                 <input type="email" id="adminLoginEmail" placeholder="admin@barbearia.com" value="admin@barbearia.com">
@@ -428,7 +423,7 @@
 
             <!-- NAVBAR -->
             <header class="navbar">
-                <div class="logo" onclick="window.location.href='/'"><i class="fas fa-scissors"></i> <span id="barbeariaNome">BarbeOnline</span></div>
+                <div class="logo" onclick="window.location.href='/'"><i class="fas fa-scissors"></i> <span id="barbeariaNome">Empório Barbe</span></div>
                 <div class="nav-links">
                     <a class="active" onclick="mudarTab('dashboard')"><i class="fas fa-home"></i> Dashboard</a>
                     <a onclick="mudarTab('fila')"><i class="fas fa-users"></i> Fila</a>
@@ -709,7 +704,6 @@
                     document.getElementById('adminNome').textContent = data.admin.nome || 'Admin';
                     mostrarToast('Login realizado!');
                     
-                    // Buscar a barbearia correta
                     await carregarBarbeariaPadrao();
                     iniciarAtualizacaoFila();
                 } else {
@@ -732,7 +726,7 @@
             }
         }
 
-        // ========== BUSCAR BARBEARIA PADRÃO ==========
+        // ========== BUSCAR BARBEARIA ==========
         async function carregarBarbeariaPadrao() {
             try {
                 const response = await fetch('/api/barbearias');
@@ -741,26 +735,21 @@
                     console.log('📋 Barbearias encontradas:', barbearias);
                     
                     if (barbearias.length > 0) {
-                        // Pega a primeira barbearia
                         const barbearia = barbearias[0];
                         barbeariaId = barbearia.id;
                         console.log('🏢 Barbearia selecionada:', barbearia.nome, 'ID:', barbeariaId);
                         
-                        // Atualizar título
                         document.getElementById('barbeariaNome').textContent = barbearia.nome;
                         
-                        // Recarregar tudo com o ID correto
                         await carregarServicos();
                         await carregarPlanos();
                         await carregarAgendamentos();
                         await carregarFila();
                         await carregarDashboard();
                         await carregarClientes();
-                        await carregarEstoque();
                         
                         mostrarToast(`✅ Barbearia: ${barbearia.nome}`);
                     } else {
-                        console.warn('⚠️ Nenhuma barbearia encontrada!');
                         mostrarToast('Nenhuma barbearia cadastrada!', 'error');
                     }
                 }
@@ -770,7 +759,7 @@
             }
         }
 
-        // ========== VERIFICAR ADMIN LOGADO ==========
+        // ========== VERIFICAR ADMIN ==========
         function verificarAdminLogado() {
             const token = localStorage.getItem('adminToken');
             if (token) {
@@ -783,8 +772,6 @@
                         document.getElementById('telaLogin').style.display = 'none';
                         document.getElementById('conteudoAdmin').style.display = 'block';
                         document.getElementById('adminNome').textContent = data.admin.nome || 'Admin';
-                        
-                        // Buscar a barbearia correta
                         carregarBarbeariaPadrao();
                         iniciarAtualizacaoFila();
                     } else {
@@ -840,9 +827,8 @@
                 document.getElementById('filaTotal').textContent = fila.fila || 0;
                 document.getElementById('totalClientes').textContent = clientes.length || 0;
                 document.getElementById('faturamentoMes').textContent = `R$ ${faturamento.toFixed(2)}`;
-                document.getElementById('servicosAtivos').textContent = document.querySelectorAll('#tabelaServicos tr').length || 0;
 
-                // Próximos 5 agendamentos
+                // Próximos agendamentos
                 const proximos = agendamentos
                     .filter(a => a.status === 'aguardando' || a.status === 'confirmado')
                     .sort((a, b) => new Date(a.data_hora) - new Date(b.data_hora))
@@ -894,33 +880,31 @@
             }
             try {
                 const response = await fetch(`/api/servicos/${barbeariaId}`);
-                if (response.ok) {
-                    const servicos = await response.json();
-                    console.log('📋 Serviços carregados:', servicos);
-                    const tbody = document.getElementById('tabelaServicos');
-                    if (servicos.length === 0) {
-                        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:2rem;">Nenhum serviço cadastrado</td></tr>`;
-                    } else {
-                        tbody.innerHTML = servicos.map(s => `
-                            <tr>
-                                <td><strong>${s.nome}</strong></td>
-                                <td>${s.descricao || '-'}</td>
-                                <td>R$ ${s.preco.toFixed(2)}</td>
-                                <td>${s.duracao || 30} min</td>
-                                <td><span class="badge ${s.ativo !== false ? 'badge-success' : 'badge-danger'}">${s.ativo !== false ? 'Ativo' : 'Inativo'}</span></td>
-                                <td>
-                                    <button class="btn btn-sm btn-info" onclick="editarServico(${s.id})"><i class="fas fa-edit"></i></button>
-                                    <button class="btn btn-sm btn-danger" onclick="deletarServico(${s.id})"><i class="fas fa-trash"></i></button>
-                                </td>
-                            </tr>
-                        `).join('');
-                    }
-                    // Atualizar contagem no dashboard
-                    document.getElementById('servicosAtivos').textContent = servicos.length;
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const servicos = await response.json();
+                console.log('📋 Serviços carregados:', servicos);
+                const tbody = document.getElementById('tabelaServicos');
+                if (servicos.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:2rem;">Nenhum serviço cadastrado</td></tr>`;
+                } else {
+                    tbody.innerHTML = servicos.map(s => `
+                        <tr>
+                            <td><strong>${s.nome}</strong></td>
+                            <td>${s.descricao || '-'}</td>
+                            <td>R$ ${s.preco.toFixed(2)}</td>
+                            <td>${s.duracao || 30} min</td>
+                            <td><span class="badge ${s.ativo !== false ? 'badge-success' : 'badge-danger'}">${s.ativo !== false ? 'Ativo' : 'Inativo'}</span></td>
+                            <td>
+                                <button class="btn btn-sm btn-info" onclick="editarServico(${s.id})"><i class="fas fa-edit"></i></button>
+                                <button class="btn btn-sm btn-danger" onclick="deletarServico(${s.id})"><i class="fas fa-trash"></i></button>
+                            </td>
+                        </tr>
+                    `).join('');
                 }
+                document.getElementById('servicosAtivos').textContent = servicos.length;
             } catch (error) {
-                console.error('Erro ao carregar serviços:', error);
-                document.getElementById('tabelaServicos').innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--danger);padding:2rem;">Erro ao carregar serviços</td></tr>`;
+                console.error('❌ Erro ao carregar serviços:', error);
+                document.getElementById('tabelaServicos').innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--danger);padding:2rem;">❌ Erro: ${error.message}</td></tr>`;
             }
         }
 
@@ -1008,32 +992,31 @@
             }
             try {
                 const response = await fetch(`/api/planos/${barbeariaId}`);
-                if (response.ok) {
-                    const planos = await response.json();
-                    console.log('📋 Planos carregados:', planos);
-                    const tbody = document.getElementById('tabelaPlanos');
-                    if (planos.length === 0) {
-                        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:2rem;">Nenhum plano cadastrado</td></tr>`;
-                    } else {
-                        tbody.innerHTML = planos.map(p => `
-                            <tr>
-                                <td><strong>${p.nome}</strong></td>
-                                <td>${p.descricao || '-'}</td>
-                                <td>R$ ${p.preco.toFixed(2)}</td>
-                                <td>${p.cortes_por_mes === 0 ? 'Ilimitado' : p.cortes_por_mes}</td>
-                                <td><span class="badge ${p.prioridade ? 'badge-warning' : ''}">${p.prioridade ? 'Sim' : 'Não'}</span></td>
-                                <td><span class="badge ${p.ativo !== false ? 'badge-success' : 'badge-danger'}">${p.ativo !== false ? 'Ativo' : 'Inativo'}</span></td>
-                                <td>
-                                    <button class="btn btn-sm btn-info" onclick="editarPlano(${p.id})"><i class="fas fa-edit"></i></button>
-                                    <button class="btn btn-sm btn-danger" onclick="deletarPlano(${p.id})"><i class="fas fa-trash"></i></button>
-                                </td>
-                            </tr>
-                        `).join('');
-                    }
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const planos = await response.json();
+                console.log('📋 Planos carregados:', planos);
+                const tbody = document.getElementById('tabelaPlanos');
+                if (planos.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:2rem;">Nenhum plano cadastrado</td></tr>`;
+                } else {
+                    tbody.innerHTML = planos.map(p => `
+                        <tr>
+                            <td><strong>${p.nome}</strong></td>
+                            <td>${p.descricao || '-'}</td>
+                            <td>R$ ${p.preco.toFixed(2)}</td>
+                            <td>${p.cortes_por_mes === 0 ? 'Ilimitado' : p.cortes_por_mes}</td>
+                            <td><span class="badge ${p.prioridade ? 'badge-warning' : ''}">${p.prioridade ? 'Sim' : 'Não'}</span></td>
+                            <td><span class="badge ${p.ativo !== false ? 'badge-success' : 'badge-danger'}">${p.ativo !== false ? 'Ativo' : 'Inativo'}</span></td>
+                            <td>
+                                <button class="btn btn-sm btn-info" onclick="editarPlano(${p.id})"><i class="fas fa-edit"></i></button>
+                                <button class="btn btn-sm btn-danger" onclick="deletarPlano(${p.id})"><i class="fas fa-trash"></i></button>
+                            </td>
+                        </tr>
+                    `).join('');
                 }
             } catch (error) {
-                console.error('Erro ao carregar planos:', error);
-                document.getElementById('tabelaPlanos').innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--danger);padding:2rem;">Erro ao carregar planos</td></tr>`;
+                console.error('❌ Erro ao carregar planos:', error);
+                document.getElementById('tabelaPlanos').innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--danger);padding:2rem;">❌ Erro: ${error.message}</td></tr>`;
             }
         }
 
@@ -1104,7 +1087,16 @@
 
         async function deletarPlano(id) {
             if (!confirm('Remover este plano?')) return;
-            mostrarToast('Funcionalidade: desativar plano');
+            try {
+                const response = await fetch(`/api/planos/${id}`, { method: 'DELETE' });
+                if (response.ok) {
+                    mostrarToast('Plano removido!');
+                    carregarPlanos();
+                    carregarDashboard();
+                }
+            } catch (error) {
+                mostrarToast('Erro: ' + error.message, 'error');
+            }
         }
 
         // ========== AGENDAMENTOS ==========
@@ -1118,42 +1110,42 @@
                 const data = document.getElementById('filtroData').value;
 
                 const response = await fetch(`/api/agendamentos/${barbeariaId}`);
-                if (response.ok) {
-                    let agendamentos = await response.json();
-                    
-                    if (status !== 'todos') {
-                        agendamentos = agendamentos.filter(a => a.status === status);
-                    }
-                    if (data) {
-                        agendamentos = agendamentos.filter(a => a.data_hora && a.data_hora.startsWith(data));
-                    }
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                let agendamentos = await response.json();
+                console.log('📋 Agendamentos carregados:', agendamentos.length);
+                
+                if (status !== 'todos') {
+                    agendamentos = agendamentos.filter(a => a.status === status);
+                }
+                if (data) {
+                    agendamentos = agendamentos.filter(a => a.data_hora && a.data_hora.startsWith(data));
+                }
 
-                    const tbody = document.getElementById('tabelaAgendamentos');
-                    if (agendamentos.length === 0) {
-                        tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:2rem;">Nenhum agendamento</td></tr>`;
-                    } else {
-                        tbody.innerHTML = agendamentos.map(a => `
-                            <tr>
-                                <td><strong>${a.cliente_nome || a.cliente || 'Anônimo'}</strong></td>
-                                <td>${a.cliente_cpf || '-'}</td>
-                                <td>${a.cliente_telefone || '-'}</td>
-                                <td>${a.servico}</td>
-                                <td>${new Date(a.data_hora).toLocaleString('pt-BR')}</td>
-                                <td>${a.valor_pago ? `R$ ${a.valor_pago.toFixed(2)}` : '-'}</td>
-                                <td><span class="status ${a.status}">${a.status}</span></td>
-                                <td>${a.pagamento_id ? '<span class="badge badge-success">Pago</span>' : a.forma_pagamento === 'dinheiro' ? '<span class="badge badge-info">Dinheiro</span>' : '<span class="badge badge-warning">Pendente</span>'}</td>
-                                <td>
-                                    <button class="btn btn-sm btn-success" onclick="atualizarStatus(${a.id}, 'confirmado')"><i class="fas fa-check"></i></button>
-                                    <button class="btn btn-sm btn-warning" onclick="atualizarStatus(${a.id}, 'done')"><i class="fas fa-check-double"></i></button>
-                                    <button class="btn btn-sm btn-danger" onclick="atualizarStatus(${a.id}, 'canceled')"><i class="fas fa-times"></i></button>
-                                </td>
-                            </tr>
-                        `).join('');
-                    }
+                const tbody = document.getElementById('tabelaAgendamentos');
+                if (agendamentos.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:2rem;">Nenhum agendamento</td></tr>`;
+                } else {
+                    tbody.innerHTML = agendamentos.map(a => `
+                        <tr>
+                            <td><strong>${a.cliente_nome || a.cliente || 'Anônimo'}</strong></td>
+                            <td>${a.cliente_cpf || '-'}</td>
+                            <td>${a.cliente_telefone || '-'}</td>
+                            <td>${a.servico}</td>
+                            <td>${new Date(a.data_hora).toLocaleString('pt-BR')}</td>
+                            <td>${a.valor_pago ? `R$ ${a.valor_pago.toFixed(2)}` : '-'}</td>
+                            <td><span class="status ${a.status}">${a.status}</span></td>
+                            <td>${a.pagamento_id ? '<span class="badge badge-success">Pago</span>' : a.forma_pagamento === 'dinheiro' ? '<span class="badge badge-info">Dinheiro</span>' : '<span class="badge badge-warning">Pendente</span>'}</td>
+                            <td>
+                                <button class="btn btn-sm btn-success" onclick="atualizarStatus(${a.id}, 'confirmado')"><i class="fas fa-check"></i></button>
+                                <button class="btn btn-sm btn-warning" onclick="atualizarStatus(${a.id}, 'done')"><i class="fas fa-check-double"></i></button>
+                                <button class="btn btn-sm btn-danger" onclick="atualizarStatus(${a.id}, 'canceled')"><i class="fas fa-times"></i></button>
+                            </td>
+                        </tr>
+                    `).join('');
                 }
             } catch (error) {
-                console.error('Erro:', error);
-                document.getElementById('tabelaAgendamentos').innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--danger);padding:2rem;">Erro ao carregar agendamentos</td></tr>`;
+                console.error('❌ Erro ao carregar agendamentos:', error);
+                document.getElementById('tabelaAgendamentos').innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--danger);padding:2rem;">❌ Erro: ${error.message}</td></tr>`;
             }
         }
 
@@ -1181,46 +1173,48 @@
             if (!barbeariaId) return;
             try {
                 const response = await fetch(`/api/agendamentos/fila/${barbeariaId}`);
-                if (response.ok) {
-                    const fila = await response.json();
-                    document.getElementById('filaTotalNumero').textContent = fila.length || 0;
-                    
-                    if (fila.length > 0) {
-                        document.getElementById('proximoCliente').textContent = fila[0].cliente_nome || fila[0].cliente || '-';
-                        const tempoMedio = fila.length * 20;
-                        document.getElementById('tempoMedioFila').textContent = tempoMedio;
-                    } else {
-                        document.getElementById('proximoCliente').textContent = 'Ninguém 🎉';
-                        document.getElementById('tempoMedioFila').textContent = '0';
-                    }
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const fila = await response.json();
+                console.log('📋 Fila carregada:', fila.length);
+                
+                document.getElementById('filaTotalNumero').textContent = fila.length || 0;
+                
+                if (fila.length > 0) {
+                    document.getElementById('proximoCliente').textContent = fila[0].cliente_nome || fila[0].cliente || '-';
+                    const tempoMedio = fila.length * 20;
+                    document.getElementById('tempoMedioFila').textContent = tempoMedio;
+                } else {
+                    document.getElementById('proximoCliente').textContent = 'Ninguém 🎉';
+                    document.getElementById('tempoMedioFila').textContent = '0';
+                }
 
-                    const container = document.getElementById('listaFilaClientes');
-                    if (fila.length === 0) {
-                        container.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:1rem;">Fila vazia! 🎉</p>';
-                    } else {
-                        container.innerHTML = fila.map((c, index) => `
-                            <div class="cliente-fila ${c.prioridade ? 'prioridade' : ''}">
-                                <div>
-                                    <strong>#${index + 1}</strong>
-                                    <span style="margin-left:0.5rem;">${c.cliente_nome || c.cliente || 'Anônimo'}</span>
-                                    ${c.prioridade ? '<span class="badge badge-warning">⭐ Prioridade</span>' : ''}
-                                    <span style="color:var(--text-muted);font-size:0.8rem;margin-left:0.5rem;">${c.servico}</span>
-                                </div>
-                                <div>
-                                    <span class="tempo">⏱ ${Math.round(c.tempo_espera / 60) || 0}min na fila</span>
-                                    <button class="btn btn-sm btn-success" onclick="iniciarAtendimento(${c.id})" style="margin-left:0.5rem;">
-                                        <i class="fas fa-play"></i>
-                                    </button>
-                                    <button class="btn btn-sm btn-danger" onclick="finalizarCortePorId(${c.id})" style="margin-left:0.3rem;">
-                                        <i class="fas fa-check"></i>
-                                    </button>
-                                </div>
+                const container = document.getElementById('listaFilaClientes');
+                if (fila.length === 0) {
+                    container.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:1rem;">Fila vazia! 🎉</p>';
+                } else {
+                    container.innerHTML = fila.map((c, index) => `
+                        <div class="cliente-fila ${c.prioridade ? 'prioridade' : ''}">
+                            <div>
+                                <strong>#${index + 1}</strong>
+                                <span style="margin-left:0.5rem;">${c.cliente_nome || c.cliente || 'Anônimo'}</span>
+                                ${c.prioridade ? '<span class="badge badge-warning">⭐ Prioridade</span>' : ''}
+                                <span style="color:var(--text-muted);font-size:0.8rem;margin-left:0.5rem;">${c.servico}</span>
                             </div>
-                        `).join('');
-                    }
+                            <div>
+                                <span class="tempo">⏱ ${Math.round(c.tempo_espera / 60) || 0}min na fila</span>
+                                <button class="btn btn-sm btn-success" onclick="iniciarAtendimento(${c.id})" style="margin-left:0.5rem;">
+                                    <i class="fas fa-play"></i>
+                                </button>
+                                <button class="btn btn-sm btn-danger" onclick="finalizarCortePorId(${c.id})" style="margin-left:0.3rem;">
+                                    <i class="fas fa-check"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `).join('');
                 }
             } catch (error) {
-                console.error('Erro ao carregar fila:', error);
+                console.error('❌ Erro ao carregar fila:', error);
+                document.getElementById('listaFilaClientes').innerHTML = `<p style="color:var(--danger);text-align:center;padding:1rem;">❌ Erro: ${error.message}</p>`;
             }
         }
 
@@ -1244,21 +1238,20 @@
 
             try {
                 const response = await fetch(`/api/agendamentos/fila/${barbeariaId}`);
-                if (response.ok) {
-                    const fila = await response.json();
-                    const agendamento = fila.find(a => 
-                        (a.cliente_nome && a.cliente_nome.toLowerCase().includes(input.toLowerCase())) ||
-                        (a.cliente && a.cliente.toLowerCase().includes(input.toLowerCase())) ||
-                        a.id == input
-                    );
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const fila = await response.json();
+                const agendamento = fila.find(a => 
+                    (a.cliente_nome && a.cliente_nome.toLowerCase().includes(input.toLowerCase())) ||
+                    (a.cliente && a.cliente.toLowerCase().includes(input.toLowerCase())) ||
+                    a.id == input
+                );
 
-                    if (!agendamento) {
-                        mostrarToast('Cliente não encontrado na fila!', 'error');
-                        return;
-                    }
-
-                    await finalizarCortePorId(agendamento.id);
+                if (!agendamento) {
+                    mostrarToast('Cliente não encontrado na fila!', 'error');
+                    return;
                 }
+
+                await finalizarCortePorId(agendamento.id);
             } catch (error) {
                 mostrarToast('Erro: ' + error.message, 'error');
             }
@@ -1312,26 +1305,29 @@
 
             try {
                 const response = await fetch(`/api/clientes/cpf/${cpf}`);
-                if (response.ok) {
-                    const cliente = await response.json();
-                    document.getElementById('resultadoBuscaCpf').innerHTML = `
-                        <div style="background:var(--dark);padding:0.8rem;border-radius:12px;border:1px solid var(--success);">
-                            <p><strong>👤 ${cliente.nome}</strong></p>
-                            <p style="color:var(--text-muted);font-size:0.85rem;">
-                                📧 ${cliente.email || 'Não informado'} | 📱 ${cliente.telefone || 'Não informado'}
-                            </p>
-                            <p style="color:var(--text-muted);font-size:0.85rem;">
-                                🎯 ${cliente.assinatura || 'Nenhum'} | ⭐ ${cliente.pontos || 0} pontos | 🎁 ${cliente.cortes_gratis || 0} cortes grátis | ✂️ ${cliente.total_cortes || 0} cortes totais
-                            </p>
-                        </div>
-                    `;
-                } else {
-                    document.getElementById('resultadoBuscaCpf').innerHTML = `
-                        <div style="background:var(--dark);padding:0.8rem;border-radius:12px;border:1px solid var(--danger);color:var(--danger);">
-                            ❌ Cliente não encontrado
-                        </div>
-                    `;
+                if (!response.ok) {
+                    if (response.status === 404) {
+                        document.getElementById('resultadoBuscaCpf').innerHTML = `
+                            <div style="background:var(--dark);padding:0.8rem;border-radius:12px;border:1px solid var(--danger);color:var(--danger);">
+                                ❌ Cliente não encontrado
+                            </div>
+                        `;
+                        return;
+                    }
+                    throw new Error(`HTTP ${response.status}`);
                 }
+                const cliente = await response.json();
+                document.getElementById('resultadoBuscaCpf').innerHTML = `
+                    <div style="background:var(--dark);padding:0.8rem;border-radius:12px;border:1px solid var(--success);">
+                        <p><strong>👤 ${cliente.nome}</strong></p>
+                        <p style="color:var(--text-muted);font-size:0.85rem;">
+                            📧 ${cliente.email || 'Não informado'} | 📱 ${cliente.telefone || 'Não informado'}
+                        </p>
+                        <p style="color:var(--text-muted);font-size:0.85rem;">
+                            🎯 ${cliente.assinatura || 'Nenhum'} | ⭐ ${cliente.pontos || 0} pontos | 🎁 ${cliente.cortes_gratis || 0} cortes grátis | ✂️ ${cliente.total_cortes || 0} cortes totais
+                        </p>
+                    </div>
+                `;
             } catch (error) {
                 mostrarToast('Erro: ' + error.message, 'error');
             }
@@ -1428,43 +1424,30 @@
         async function carregarClientes() {
             try {
                 const response = await fetch('/api/clientes');
-                if (response.ok) {
-                    const clientes = await response.json();
-                    const tbody = document.getElementById('tabelaClientes');
-                    if (clientes.length === 0) {
-                        tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:2rem;">Nenhum cliente</td></tr>`;
-                    } else {
-                        tbody.innerHTML = clientes.map(c => `
-                            <tr>
-                                <td>${c.id}</td>
-                                <td><strong>${c.nome}</strong></td>
-                                <td>${c.email || '-'}</td>
-                                <td>${c.telefone || '-'}</td>
-                                <td>${c.cpf || '-'}</td>
-                                <td>${c.assinatura || 'Nenhum'}</td>
-                                <td>${c.cortes_gratis || 0}</td>
-                                <td>${c.pontos || 0}</td>
-                                <td>${c.total_cortes || 0}</td>
-                            </tr>
-                        `).join('');
-                    }
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const clientes = await response.json();
+                console.log('📋 Clientes carregados:', clientes.length);
+                const tbody = document.getElementById('tabelaClientes');
+                if (clientes.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:2rem;">Nenhum cliente</td></tr>`;
+                } else {
+                    tbody.innerHTML = clientes.map(c => `
+                        <tr>
+                            <td>${c.id}</td>
+                            <td><strong>${c.nome}</strong></td>
+                            <td>${c.email || '-'}</td>
+                            <td>${c.telefone || '-'}</td>
+                            <td>${c.cpf || '-'}</td>
+                            <td>${c.assinatura || 'Nenhum'}</td>
+                            <td>${c.cortes_gratis || 0}</td>
+                            <td>${c.pontos || 0}</td>
+                            <td>${c.total_cortes || 0}</td>
+                        </tr>
+                    `).join('');
                 }
             } catch (error) {
-                console.error('Erro:', error);
-            }
-        }
-
-        // ========== ESTOQUE ==========
-        async function carregarEstoque() {
-            if (!barbeariaId) return;
-            try {
-                const response = await fetch(`/api/estoque/${barbeariaId}`);
-                if (response.ok) {
-                    const estoque = await response.json();
-                    console.log('📦 Estoque:', estoque);
-                }
-            } catch (error) {
-                console.error('Erro:', error);
+                console.error('❌ Erro ao carregar clientes:', error);
+                document.getElementById('tabelaClientes').innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--danger);padding:2rem;">❌ Erro: ${error.message}</td></tr>`;
             }
         }
 
@@ -1502,7 +1485,7 @@
             verificarAdminLogado();
         });
 
-        console.log('🔧 Painel Admin BarbeOnline carregado!');
+        console.log('🔧 Painel Admin Empório Barbe carregado!');
     </script>
 </body>
 </html>
